@@ -5,13 +5,12 @@
   import TranscriptionModal from "./TranscriptionModal.svelte";
   import { processVoiceMessage } from "../lib/api.js";
   import {
-    transcriptionCache,
     initializeStores,
+    transcriptionCache,
     setupStorePersistence,
     getApiKey as getApiKeyFunc,
   } from "../lib/stores.js";
   import { get } from "svelte/store";
-  import { extensionStatus } from "../lib/stores.js";
   import { apiKey } from "../lib/stores.js";
 
   const playSelectors = [

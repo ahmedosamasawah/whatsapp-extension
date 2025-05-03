@@ -4651,23 +4651,20 @@
 	const selectedTranscriptionModel = writable("whisper-1");
 	const selectedAnalysisModel = writable("gpt-4o");
 
-	// Transcription settings
 	const transcriptionSettings = writable({
 	  generateCleaned: true,
 	  generateSummary: true,
 	  generateReply: true,
-	  language: "auto", // auto, en, es, etc.
+	  language: "auto",
 	  promptTemplate: `Based on the voice message transcript, generate four outputs:
-1. TRANSCRIPT: The exact transcript
-2. CLEANED: A grammatically corrected, filler-word-free version
-3. SUMMARY: A concise summary in 1-2 sentences
-4. REPLY: A natural, helpful suggested reply to this message`,
+TRANSCRIPT: The exact transcript
+CLEANED: A grammatically corrected, filler-word-free version
+SUMMARY: A concise summary in 1-2 sentences
+REPLY: A natural, helpful suggested reply to this message`,
 	});
 
-	// Transcription cache
 	const transcriptionCache = writable(new Map());
 
-	// Extension status
 	const extensionStatus = writable({
 	  isApiKeyConfigured: false,
 	  isExtensionEnabled: true,
@@ -4675,7 +4672,6 @@
 	  lastError: null,
 	});
 
-	// Status derived store for popup
 	derived(extensionStatus, ($status) => {
 	  if (!$status.isApiKeyConfigured)
 	    return { text: "API key not configured", type: "error" };
@@ -4690,20 +4686,14 @@
 	  return { text: "Ready", type: "success" };
 	});
 
-	// Initialize stores from storage - returns a promise
 	function initializeStores() {
 	  return new Promise((resolve) => {
-	    console.log("Initializing stores...");
-
-	    // First check local storage for the API key (preferred)
 	    chrome.storage.local.get(["openai_api_key"], (localResult) => {
 	      if (localResult.openai_api_key) {
-	        console.log("Found API key in local storage");
 	        apiKey.set(localResult.openai_api_key);
 	        extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: true }));
 	      }
 
-	      // Then check sync storage for all settings
 	      chrome.storage.sync.get(
 	        [
 	          "openai_api_key",
@@ -4713,21 +4703,10 @@
 	          "isExtensionEnabled",
 	        ],
 	        (result) => {
-	          console.log("Sync storage data retrieved:", {
-	            hasApiKey: !!result.openai_api_key,
-	            models:
-	              !!result.selectedTranscriptionModel &&
-	              !!result.selectedAnalysisModel,
-	            settings: !!result.transcriptionSettings,
-	          });
-
-	          // Only set API key from sync if we didn't already find it in local storage
 	          if (!localResult.openai_api_key && result.openai_api_key) {
-	            console.log("Setting API key from sync storage");
 	            apiKey.set(result.openai_api_key);
 	            extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: true }));
 
-	            // Copy to local storage for future use
 	            chrome.storage.local.set({ openai_api_key: result.openai_api_key });
 	          }
 
@@ -4747,15 +4726,7 @@
 	            }));
 	          }
 
-	          // Verify the API key value after loading
-	          const currentApiKey = get(apiKey);
-	          console.log(
-	            "Current API key after initialization:",
-	            !!currentApiKey,
-	            "IsConfigured:",
-	            get(extensionStatus).isApiKeyConfigured
-	          );
-
+	          get(apiKey);
 	          resolve();
 	        }
 	      );
@@ -4765,7 +4736,6 @@
 
 	function setupStorePersistence() {
 	  apiKey.subscribe((value) => {
-	    console.log("Saving API key to storage:", !!value);
 	    chrome.storage.sync.set({ openai_api_key: value });
 	    chrome.storage.local.set({ openai_api_key: value });
 	    extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: !!value }));
@@ -4788,26 +4758,17 @@
 	  });
 	}
 
-	// Helper function to ensure API key is available
 	function getApiKey() {
 	  const key = get(apiKey);
-	  console.log("Retrieved API key from store:", !!key);
 
-	  // If we don't have an API key in the store, try to get it from background script
 	  if (!key) {
-	    console.log("No API key in store, requesting from background...");
 	    return new Promise((resolve) => {
 	      chrome.runtime.sendMessage({ action: "getApiKey" }, (response) => {
 	        if (response && response.apiKey) {
-	          console.log("Received API key from background script");
-	          // Update the store with the new key
 	          apiKey.set(response.apiKey);
 	          extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: true }));
 	          resolve(response.apiKey);
-	        } else {
-	          console.log("No API key returned from background script");
-	          resolve(null);
-	        }
+	        } else resolve(null);
 	      });
 	    });
 	  }
@@ -4831,24 +4792,17 @@
 		if (get$1(isTranscribed)) {
 			const data = $transcriptionCache().get(bubbleId());
 
-			if (data && show()) {
-				show()({ data, bubbleId: bubbleId() });
-			}
-
+			if (data && show()) show()({ data, bubbleId: bubbleId() });
 			return;
 		}
 
-		// Start new transcription
 		set(isLoading, true);
 		set(buttonText, "⏳");
 
-		// Call transcribe callback prop if provided
-		if (transcribe()) {
-			transcribe()({
-				bubbleId: bubbleId(),
-				playBtn: playBtn()
-			});
-		}
+		if (transcribe()) transcribe()({
+			bubbleId: bubbleId(),
+			playBtn: playBtn()
+		});
 	}
 
 	var root = template(`<button> </button>`);
@@ -4860,8 +4814,8 @@
 		const $transcriptionCache = () => store_get(transcriptionCache, '$transcriptionCache', $$stores);
 		let bubbleId = prop($$props, 'bubbleId', 8);
 		let playBtn = prop($$props, 'playBtn', 8);
-		let transcribe = prop($$props, 'transcribe', 8, undefined);
 		let show = prop($$props, 'show', 8, undefined);
+		let transcribe = prop($$props, 'transcribe', 8, undefined);
 		let isTranscribed = mutable_source(false);
 		let isLoading = mutable_source(false);
 		let buttonText = mutable_source("Transcribe");
@@ -4871,7 +4825,6 @@
 			set(isTranscribed, true);
 			set(buttonText, "✓");
 
-			// Cache the transcription
 			if (bubbleId() && data) {
 				transcriptionCache.update((cache) => {
 					cache.set(bubbleId(), data);
@@ -4883,13 +4836,7 @@
 		function setError() {
 			set(isLoading, false);
 			set(buttonText, "⚠️");
-
-			setTimeout(
-				() => {
-					set(buttonText, "Retry");
-				},
-				2000
-			);
+			setTimeout(() => set(buttonText, "Retry"), 2000);
 		}
 
 		legacy_pre_effect(
@@ -4956,12 +4903,10 @@
 		close()();
 	}
 
-	// For handling stopPropagation
 	function handleModalClick(event) {
 		event.stopPropagation();
 	}
 
-	// Keyboard event handlers
 	function handleKeydown(event, close) {
 		if (event.key === "Escape") {
 			close()();
@@ -4975,16 +4920,16 @@
 	}
 
 	var on_click = (__1, setActiveTab, tab) => setActiveTab(get$1(tab).id);
-	var root_2 = template(`<button><span class="tab-icon svelte-4kqys3"> </span> <span class="tab-label svelte-4kqys3"> </span></button>`);
-	var root_3 = template(`<div class="loading-container svelte-4kqys3"><div class="loading-spinner svelte-4kqys3"></div> <div class="loading-text svelte-4kqys3">Analyzing voice message...</div></div>`);
-	var root_5 = template(`<div class="content-section svelte-4kqys3"><p class="section-text svelte-4kqys3"> </p></div>`);
-	var root_7 = template(`<div class="content-section svelte-4kqys3"><p class="section-text svelte-4kqys3"> </p></div>`);
-	var root_9 = template(`<div class="content-section svelte-4kqys3"><p class="section-text svelte-4kqys3"> </p></div>`);
-	var root_11 = template(`<div class="content-section svelte-4kqys3"><p class="section-text svelte-4kqys3"> </p></div>`);
+	var root_2 = template(`<button><span class="tab-icon svelte-1t3rt2a"> </span> <span class="tab-label svelte-1t3rt2a"> </span></button>`);
+	var root_3 = template(`<div class="loading-container svelte-1t3rt2a"><div class="loading-spinner svelte-1t3rt2a"></div> <div class="loading-text svelte-1t3rt2a">Analyzing voice message...</div></div>`);
+	var root_5 = template(`<div class="content-section svelte-1t3rt2a"><p class="section-text svelte-1t3rt2a"> </p></div>`);
+	var root_7 = template(`<div class="content-section svelte-1t3rt2a"><p class="section-text svelte-1t3rt2a"> </p></div>`);
+	var root_9 = template(`<div class="content-section svelte-1t3rt2a"><p class="section-text svelte-1t3rt2a"> </p></div>`);
+	var root_11 = template(`<div class="content-section svelte-1t3rt2a"><p class="section-text svelte-1t3rt2a"> </p></div>`);
 	var on_click_1 = (__2, copyText, data, activeTab) => copyText(data()[get$1(activeTab)]);
-	var root_13 = template(`<button class="use-reply-button svelte-4kqys3">Use Reply</button>`);
-	var root_12 = template(`<button class="copy-button svelte-4kqys3">Copy Text</button> <!>`, 1);
-	var root_1 = template(`<div class="overlay svelte-4kqys3" role="dialog" aria-modal="true" tabindex="-1"></div> <div class="modal svelte-4kqys3" role="dialog" aria-labelledby="modal-title" tabindex="0"><div class="modal-header svelte-4kqys3"><div class="modal-title svelte-4kqys3" id="modal-title">Voice Message Analysis</div> <button class="modal-close-btn svelte-4kqys3">✕</button></div> <div class="modal-tabs svelte-4kqys3"></div> <div class="modal-content svelte-4kqys3"><!></div> <div class="modal-footer svelte-4kqys3"><!></div></div>`, 1);
+	var root_13 = template(`<button class="use-reply-button svelte-1t3rt2a">Use Reply</button>`);
+	var root_12 = template(`<button class="copy-button svelte-1t3rt2a">Copy Text</button> <!>`, 1);
+	var root_1 = template(`<div class="overlay svelte-1t3rt2a" role="dialog" aria-modal="true" tabindex="-1"></div> <div class="modal svelte-1t3rt2a" role="dialog" aria-labelledby="modal-title"><div class="modal-header svelte-1t3rt2a"><div class="modal-title svelte-1t3rt2a" id="modal-title">Voice Message Analysis</div> <button class="modal-close-btn svelte-1t3rt2a">✕</button></div> <div class="modal-tabs svelte-1t3rt2a"></div> <div class="modal-content svelte-1t3rt2a"><!></div> <div class="modal-footer svelte-1t3rt2a"><!></div></div>`, 1);
 
 	function TranscriptionModal($$anchor, $$props) {
 		push($$props, false);
@@ -5001,7 +4946,6 @@
 		let close = prop($$props, 'close', 8, () => {});
 		let useReply = prop($$props, 'useReply', 8, (replyText) => {});
 
-		// Tab management
 		const tabs = [
 			{
 				id: "transcript",
@@ -5026,7 +4970,6 @@
 		function copyText(text) {
 			navigator.clipboard.writeText(text);
 
-			// Show toast notification
 			const toast = document.createElement("div");
 
 			toast.className = "transcription-toast";
@@ -5092,7 +5035,7 @@
 
 					template_effect(
 						($0) => {
-							classes = set_class(button_1, 1, 'tab-button svelte-4kqys3', null, classes, $0);
+							classes = set_class(button_1, 1, 'tab-button svelte-1t3rt2a', null, classes, $0);
 							button_1.disabled = loading() || !data()[get$1(tab).id];
 							set_text(text_1, get$1(tab).icon);
 							set_text(text_2, get$1(tab).label);
@@ -5250,27 +5193,12 @@
 
 	delegate(['click', 'keydown']);
 
-	/**
-	 * Transcribe audio using OpenAI's Whisper API
-	 * @param {Blob} audioBlob - The audio blob to transcribe
-	 * @returns {Promise<string>} - The transcription text
-	 */
+	/** @param {Blob} audioBlob */
 	async function transcribeAudio(audioBlob) {
-	  // Use the helper function to get the API key
 	  const key = await getApiKey();
 	  const model = get(selectedTranscriptionModel);
 
-	  console.log("Transcribing audio with:", {
-	    hasKey: !!key,
-	    model,
-	    audioSize: audioBlob.size,
-	    audioType: audioBlob.type,
-	  });
-
-	  if (!key) {
-	    console.error("API key not configured");
-	    throw new Error("API key not configured");
-	  }
+	  if (!key) throw new Error("API key not configured");
 
 	  extensionStatus.update((s) => ({
 	    ...s,
@@ -5278,75 +5206,44 @@
 	    lastError: null,
 	  }));
 
-	  try {
-	    const formData = new FormData();
-	    formData.append("model", model);
-	    formData.append(
-	      "file",
-	      new File([audioBlob], "audio.ogg", { type: audioBlob.type })
-	    );
+	  const formData = new FormData();
+	  formData.append("model", model);
+	  formData.append(
+	    "file",
+	    new File([audioBlob], "audio.ogg", { type: audioBlob.type })
+	  );
 
-	    console.log("Sending transcription request to OpenAI...");
-	    const response = await fetch(
-	      "https://api.openai.com/v1/audio/transcriptions",
-	      {
-	        method: "POST",
-	        headers: {
-	          Authorization: `Bearer ${key}`,
-	        },
-	        body: formData,
-	      }
-	    );
-
-	    if (!response.ok) {
-	      const errorText = await response.text();
-	      console.error("Transcription failed:", errorText);
-	      throw new Error(`Transcription failed: ${errorText}`);
+	  const response = await fetch(
+	    "https://api.openai.com/v1/audio/transcriptions",
+	    {
+	      method: "POST",
+	      headers: {
+	        Authorization: `Bearer ${key}`,
+	      },
+	      body: formData,
 	    }
+	  );
 
-	    const result = await response.json();
-	    console.log(
-	      "Transcription successful:",
-	      result.text.substring(0, 50) + "..."
-	    );
-	    return result.text;
-	  } catch (error) {
-	    console.error("Error in transcribeAudio:", error);
-	    extensionStatus.update((s) => ({ ...s, lastError: error.message }));
-	    throw error;
-	  } finally {
-	    extensionStatus.update((s) => ({
-	      ...s,
-	      pendingTranscriptions: s.pendingTranscriptions - 1,
-	    }));
+	  if (!response.ok) {
+	    const errorText = await response.text();
+	    throw new Error(`Transcription failed: ${errorText}`);
 	  }
+
+	  const result = await response.json();
+	  extensionStatus.update((s) => ({
+	    ...s,
+	    pendingTranscriptions: s.pendingTranscriptions - 1,
+	  }));
+	  return result.text;
 	}
 
-	/**
-	 * Generate analysis of the transcription (cleaned, summary, reply)
-	 * @param {string} transcription - The raw transcription
-	 * @returns {Promise<Object>} - Object with cleaned, summary, and reply properties
-	 */
+	/** @param {string} transcription */
 	async function analyzeTranscription(transcription) {
-	  // Use the helper function to get the API key
 	  const key = await getApiKey();
 	  const model = get(selectedAnalysisModel);
 	  const settings = get(transcriptionSettings);
 
-	  console.log("Analyzing transcription with:", {
-	    hasKey: !!key,
-	    model,
-	    transcriptionLength: transcription.length,
-	    settings: {
-	      ...settings,
-	      promptTemplate: settings.promptTemplate.substring(0, 50) + "...",
-	    },
-	  });
-
-	  if (!key) {
-	    console.error("API key not configured");
-	    throw new Error("API key not configured");
-	  }
+	  if (!key) throw new Error("API key not configured");
 
 	  extensionStatus.update((s) => ({
 	    ...s,
@@ -5355,17 +5252,14 @@
 	  }));
 
 	  try {
-	    // Build the system prompt based on which outputs are enabled
 	    let systemPrompt =
 	      "You are an AI assistant that processes voice message transcriptions.";
 
-	    // Build the user prompt based on settings
 	    let userPrompt = settings.promptTemplate.replace(
 	      "TRANSCRIPT",
 	      transcription
 	    );
 
-	    console.log("Sending analysis request to OpenAI...");
 	    const response = await fetch("https://api.openai.com/v1/chat/completions", {
 	      method: "POST",
 	      headers: {
@@ -5384,19 +5278,15 @@
 
 	    if (!response.ok) {
 	      const errorText = await response.text();
-	      console.error("Analysis failed:", errorText);
 	      throw new Error(`Analysis failed: ${errorText}`);
 	    }
 
 	    const result = await response.json();
 	    const content = result.choices[0].message.content;
-	    console.log("Analysis successful, parsing response...");
 
-	    // Parse the response to extract the different sections
 	    const sections = parseAnalysisResponse(content, transcription);
 	    return sections;
 	  } catch (error) {
-	    console.error("Error in analyzeTranscription:", error);
 	    extensionStatus.update((s) => ({ ...s, lastError: error.message }));
 	    throw error;
 	  } finally {
@@ -5407,12 +5297,7 @@
 	  }
 	}
 
-	/**
-	 * Parse the AI response to extract the different sections
-	 * @param {string} response - The AI response text
-	 * @param {string} originalTranscription - The original transcription
-	 * @returns {Object} - Object with transcript, cleaned, summary, and reply properties
-	 */
+	/** @param {string} response @param {string} originalTranscription */
 	function parseAnalysisResponse(response, originalTranscription) {
 	  const result = {
 	    transcript: originalTranscription,
@@ -5421,31 +5306,19 @@
 	    reply: "",
 	  };
 
-	  // Try to extract sections using markdown headers or numbered sections
 	  const cleanedMatch = response.match(
 	    /CLEANED:?\s*([\s\S]*?)(?=SUMMARY:|REPLY:|$)/i
 	  );
 	  const summaryMatch = response.match(/SUMMARY:?\s*([\s\S]*?)(?=REPLY:|$)/i);
 	  const replyMatch = response.match(/REPLY:?\s*([\s\S]*?)(?=$)/i);
 
-	  if (cleanedMatch && cleanedMatch[1]) {
-	    result.cleaned = cleanedMatch[1].trim();
-	  }
+	  if (cleanedMatch && cleanedMatch[1]) result.cleaned = cleanedMatch[1].trim();
+	  if (summaryMatch && summaryMatch[1]) result.summary = summaryMatch[1].trim();
+	  if (replyMatch && replyMatch[1]) result.reply = replyMatch[1].trim();
 
-	  if (summaryMatch && summaryMatch[1]) {
-	    result.summary = summaryMatch[1].trim();
-	  }
-
-	  if (replyMatch && replyMatch[1]) {
-	    result.reply = replyMatch[1].trim();
-	  }
-
-	  // If we couldn't extract the sections using the method above,
-	  // split by numbered lists (1., 2., etc.)
 	  if (!result.cleaned && !result.summary && !result.reply) {
 	    const parts = response.split(/\d+\.\s+/);
 	    if (parts.length >= 5) {
-	      // [empty string before 1., transcript, cleaned, summary, reply]
 	      result.cleaned = parts[2]?.trim() || "";
 	      result.summary = parts[3]?.trim() || "";
 	      result.reply = parts[4]?.trim() || "";
@@ -5455,22 +5328,10 @@
 	  return result;
 	}
 
-	/**
-	 * Process a voice message by transcribing and analyzing it
-	 * @param {Blob} audioBlob - The audio blob
-	 * @returns {Promise<Object>} - Object with transcript, cleaned, summary, and reply properties
-	 */
+	/** @param {Blob} audioBlob */
 	async function processVoiceMessage(audioBlob) {
-	  console.log("Processing voice message, blob size:", audioBlob.size);
-
-	  // First transcribe the audio
 	  const transcription = await transcribeAudio(audioBlob);
-	  console.log("Transcription complete, length:", transcription.length);
-
-	  // Then analyze the transcription to get the other outputs
 	  const analysis = await analyzeTranscription(transcription);
-	  console.log("Analysis complete");
-
 	  return analysis;
 	}
 
@@ -5480,7 +5341,6 @@
 		const [$$stores, $$cleanup] = setup_stores();
 		const $transcriptionCache = () => store_get(transcriptionCache, '$transcriptionCache', $$stores);
 
-		// Audio selectors from the original code
 		const playSelectors = [
 			'span[data-icon="audio-play"]',
 			'[data-testid="audio-player"]',
@@ -5488,11 +5348,9 @@
 			".audio-player"
 		];
 
-		// References
-		let buttons = new Map(); // Map of bubbleId to TranscribeButton component
-		let observer; // MutationObserver
-		let audioData = null; // Current audio data for processing
-		// Modal state
+		let buttons = new Map();
+		let observer;
+		let audioData = null;
 		let showModal = mutable_source(false);
 		let modalLoading = mutable_source(false);
 
@@ -5506,61 +5364,35 @@
 		let currentBubbleId = null;
 
 		onMount(async () => {
-			// Initialize stores from storage and wait for it to complete
-			console.log("App component mounting, initializing stores...");
 			await initializeStores();
-			console.log("Stores initialized, setting up persistence...");
 			setupStorePersistence();
-
-			// Log the current state of the API key using 'get' instead of $ syntax
-			const status = get(extensionStatus);
-
-			console.log("API key configured:", status.isApiKeyConfigured);
-			// Run a diagnostic on API key access
 			validateApiKeyAccess();
-			// Initialize buttons and message listener
-			console.log("Initializing buttons and message listener...");
 			initializeButtons();
 			setupMessageListener();
 
-			// Set up observer for new messages
 			observer = new MutationObserver((mutations) => {
-				if (mutations.some((m) => m.addedNodes.length > 0)) {
-					initializeButtons();
-				}
+				if (mutations.some((m) => m.addedNodes.length > 0)) initializeButtons();
 			});
 
 			observer.observe(document.body, { childList: true, subtree: true });
-			console.log("App component initialization complete");
 		});
 
 		onDestroy(() => {
-			if (observer) {
-				observer.disconnect();
-			}
+			if (observer) observer.disconnect();
 		});
 
-		/**
-		 * Add transcribe buttons to all voice messages
-		 */
 		function initializeButtons() {
 			document.querySelectorAll(playSelectors.join(",")).forEach((playBtn) => {
 				const bubble = playBtn.closest(".message-out, ._amkz, ._amjy");
 
 				if (!bubble || bubble.querySelector(".transcribe-button")) return;
-
-				// Generate a unique ID for this bubble if it doesn't have one
-				if (!bubble.dataset.transcriptionId) {
-					bubble.dataset.transcriptionId = `bubble-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-				}
+				if (!bubble.dataset.transcriptionId) bubble.dataset.transcriptionId = `bubble-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 				const bubbleId = bubble.dataset.transcriptionId;
-				// Create a container for the Svelte component
 				const container = document.createElement("div");
 
 				bubble.appendChild(container);
 
-				// Initialize the TranscribeButton component using mount instead of new
 				const component = mount(TranscribeButton, {
 					target: container,
 					props: {
@@ -5571,37 +5403,24 @@
 					}
 				});
 
-				// Store reference to component
 				buttons.set(bubbleId, component);
 			});
 		}
 
-		/**
-		 * Set up listener for audio intercept messages
-		 */
 		function setupMessageListener() {
 			window.addEventListener("message", (e) => {
 				if (e.source !== window || e.data?.source !== "WA_TRANSCRIBER" || e.data.type !== "WA_AUDIO") return;
 
-				// Save the audio data for processing
 				const blob = new Blob([new Uint8Array(e.data.data)], { type: e.data.mime });
 
 				audioData = blob;
-
-				// Start processing if we have a pending transcription
-				if (currentBubbleId && get$1(modalLoading)) {
-					processAudio();
-				}
+				if (currentBubbleId && get$1(modalLoading)) processAudio();
 			});
 		}
 
-		/**
-		 * Handle transcribe button click
-		 */
 		async function handleTranscribe({ bubbleId, playBtn }) {
 			currentBubbleId = bubbleId;
 
-			// Reset and show modal
 			set(modalData, {
 				transcript: "",
 				cleaned: "",
@@ -5612,79 +5431,40 @@
 			set(modalLoading, true);
 			set(showModal, true);
 
-			// Check if we already have cached data
 			if ($transcriptionCache().has(bubbleId)) {
 				set(modalData, $transcriptionCache().get(bubbleId));
 				set(modalLoading, false);
 				return;
 			}
 
-			// Trigger audio playback to capture audio data
 			audioData = null;
 			playBtn.click();
-			setTimeout(() => playBtn.click(), 100); // Stop playback
-
-			// If we already have audio data, process it immediately
-			if (audioData) {
-				processAudio();
-			}
+			setTimeout(() => playBtn.click(), 100);
+			if (audioData) processAudio();
 		}
 
-		/**
-		 * Process audio data and update the UI
-		 */
 		async function processAudio() {
 			if (!audioData || !currentBubbleId) return;
 
 			const blob = audioData;
 
-			audioData = null; // Reset for next usage
+			audioData = null;
 
-			try {
-				// Process the voice message
-				const result = await processVoiceMessage(blob);
+			const result = await processVoiceMessage(blob);
 
-				// Update the modal
-				set(modalData, result);
-				set(modalLoading, false);
+			set(modalData, result);
+			set(modalLoading, false);
 
-				// Update the button
-				const component = buttons.get(currentBubbleId);
+			const component = buttons.get(currentBubbleId);
 
-				if (component) {
-					component.setTranscribed(result);
-				}
+			if (component) component.setTranscribed(result);
 
-				// Cache the result
-				transcriptionCache.update((cache) => {
-					cache.set(currentBubbleId, result);
-					return cache;
-				});
-			} catch(error) {
-				console.error("Voice message processing failed:", error);
-
-				// Update the button to show error
-				const component = buttons.get(currentBubbleId);
-
-				if (component) {
-					component.setError();
-				}
-
-				// Show error in modal
-				set(modalData, {
-					transcript: `⚠️ Error: ${error.message}`,
-					cleaned: "",
-					summary: "",
-					reply: ""
-				});
-
-				set(modalLoading, false);
-			}
+			transcriptionCache.update((cache) => {
+				cache.set(currentBubbleId, result);
+				return cache;
+			});
 		}
 
-		/**
-		 * Show existing transcription data
-		 */
 		function showTranscription({ data, bubbleId }) {
 			set(modalData, data);
 			currentBubbleId = bubbleId;
@@ -5692,62 +5472,31 @@
 			set(showModal, true);
 		}
 
-		/**
-		 * Handle modal close
-		 */
 		function handleModalClose() {
 			set(showModal, false);
 			currentBubbleId = null;
 		}
 
-		/**
-		 * Insert the suggested reply into the chat input field
-		 */
 		function handleUseReply(e) {
 			const reply = e.detail;
-			// Find the input field
 			const inputField = document.querySelector('[contenteditable="true"]');
 
 			if (!inputField) return;
-			// Insert the text
 			inputField.textContent = reply;
 
-			// Dispatch input event to trigger WhatsApp's internal handlers
 			const event = new Event("input", { bubbles: true });
 
 			inputField.dispatchEvent(event);
-			// Focus the input field
 			inputField.focus();
 		}
 
-		/**
-		 * Validate that we can access the API key
-		 */
 		async function validateApiKeyAccess() {
-			console.log("Running API key validation test");
-
-			// Test getting API key directly from store
 			const storeKey = get(apiKey);
-
-			console.log("API key from store:", !!storeKey);
-
-			// Test getting API key via helper function
 			const helperKey = await getApiKey();
 
-			console.log("API key from helper function:", !!helperKey);
-
-			// If neither worked, try a direct message to the background script
 			if (!storeKey && !helperKey) {
-				console.log("No API key found, requesting directly from background...");
-
-				chrome.runtime.sendMessage({ action: "getApiKey" }, (response) => {
-					console.log("Background getApiKey response:", response ? !!response.apiKey : "no response");
-				});
-
-				// Also check storage contents
-				chrome.runtime.sendMessage({ action: "checkStorage" }, (response) => {
-					console.log("Storage contents:", response);
-				});
+				chrome.runtime.sendMessage({ action: "getApiKey" }, (response) => {});
+				chrome.runtime.sendMessage({ action: "checkStorage" }, (response) => {});
 			}
 		}
 
@@ -5771,43 +5520,25 @@
 		$$cleanup();
 	}
 
-	// Initialize the app when the DOM is ready
 	async function initApp() {
-	  console.log("Initializing WhatsApp Transcriber app");
-
-	  // Create a container for our app
 	  const container = document.createElement("div");
 	  container.id = "whatsapp-transcriber-app";
 	  document.body.appendChild(container);
 
-	  // Initialize Svelte app - updated to use mount instead of new App()
 	  mount(App, {
 	    target: container,
 	  });
 
-	  // Listen for extension messages
 	  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-	    console.log("Received extension message:", message.action);
+	    if (message.action === "settingsUpdated") window.location.reload();
 
-	    if (message.action === "settingsUpdated") {
-	      // Refresh the page to apply new settings
-	      console.log("Settings updated, reloading page");
-	      window.location.reload();
-	    }
-
-	    // Always return true for async response
 	    return true;
 	  });
-
-	  console.log("WhatsApp Transcriber app initialized");
 	}
 
-	// Wait for DOM to be ready
-	if (document.readyState === "loading") {
+	if (document.readyState === "loading")
 	  document.addEventListener("DOMContentLoaded", initApp);
-	} else {
-	  initApp();
-	}
+	else initApp();
 
 })();
 //# sourceMappingURL=content.js.map

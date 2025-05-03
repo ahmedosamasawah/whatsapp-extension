@@ -22,10 +22,10 @@ export const transcriptionSettings = writable({
   generateReply: true,
   language: "auto",
   promptTemplate: `Based on the voice message transcript, generate four outputs:
-1. TRANSCRIPT: The exact transcript
-2. CLEANED: A grammatically corrected, filler-word-free version
-3. SUMMARY: A concise summary in 1-2 sentences
-4. REPLY: A natural, helpful suggested reply to this message`,
+TRANSCRIPT: The exact transcript
+CLEANED: A grammatically corrected, filler-word-free version
+SUMMARY: A concise summary in 1-2 sentences
+REPLY: A natural, helpful suggested reply to this message`,
 });
 
 export const transcriptionCache = writable(new Map());
@@ -101,7 +101,6 @@ export function initializeStores() {
 
 export function setupStorePersistence() {
   apiKey.subscribe((value) => {
-    console.log("Saving API key to storage:", !!value);
     chrome.storage.sync.set({ openai_api_key: value });
     chrome.storage.local.set({ openai_api_key: value });
     extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: !!value }));

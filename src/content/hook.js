@@ -1,6 +1,5 @@
 (() => {
   const audioMap = new Map();
-
   const origCreate = URL.createObjectURL;
 
   URL.createObjectURL = function (blob) {
@@ -22,7 +21,6 @@
     if (!rec || rec.sent) return;
 
     rec.sent = true;
-
     rec.blob.arrayBuffer().then((buf) => {
       window.postMessage(
         {

@@ -53,7 +53,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.action === "settingsUpdated") {
-    console.log("Settings updated, notifying tabs");
     chrome.tabs.query({ url: "https://web.whatsapp.com/*" }, (tabs) => {
       tabs.forEach((tab) =>
         chrome.tabs.sendMessage(tab.id, { action: "settingsUpdated" })
