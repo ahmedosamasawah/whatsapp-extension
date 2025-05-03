@@ -1,11 +1,18 @@
 (() => {
   const audioMap = new Map();
+
   const origCreate = URL.createObjectURL;
 
   URL.createObjectURL = function (blob) {
     const url = origCreate.apply(this, arguments);
-    if (blob?.type?.startsWith("audio/"))
-      audioMap.set(url, { blob, mime: blob.type, sent: false });
+
+    if (blob?.type?.startsWith("audio/")) {
+      audioMap.set(url, {
+        blob,
+        mime: blob.type,
+        sent: false,
+      });
+    }
 
     return url;
   };
@@ -13,6 +20,7 @@
   function maybeSend(url) {
     const rec = audioMap.get(url);
     if (!rec || rec.sent) return;
+
     rec.sent = true;
 
     rec.blob.arrayBuffer().then((buf) => {

@@ -1,0 +1,29 @@
+{
+  "name": "whatsapp-ai-transcriber-plus",
+  "version": "1.0.0",
+  "description": "WhatsApp voice message transcription with AI analysis",
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "start": "web-ext run --source-dir ./dist/",
+    "lint": "eslint src",
+    "package": "npm run build && web-ext build --source-dir ./dist/ --overwrite-dest"
+  },
+  "dependencies": {
+    "svelte": "^5.28.2"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^24.1.0",
+    "@rollup/plugin-node-resolve": "^15.0.2",
+    "@rollup/plugin-terser": "^0.4.1",
+    "eslint": "^8.39.0",
+    "eslint-plugin-svelte3": "^4.0.0",
+    "rollup": "^3.21.0",
+    "rollup-plugin-copy": "^3.4.0",
+    "rollup-plugin-css-only": "^4.3.0",
+    "rollup-plugin-svelte": "^7.1.4",
+    "web-ext": "^7.6.2"
+  },
+  "private": true,
+  "type": "module"
+}

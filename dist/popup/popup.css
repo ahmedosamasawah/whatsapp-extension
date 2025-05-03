@@ -1,0 +1,197 @@
+
+  .container.svelte-1rt4zx8 {
+    width: 320px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    padding: 16px;
+    color: #333;
+  }
+  
+  header.svelte-1rt4zx8 {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  h1.svelte-1rt4zx8 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    color: #00a884;
+  }
+  
+  .status-container.svelte-1rt4zx8 {
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+  }
+  
+  .status-row.svelte-1rt4zx8 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .status-row.svelte-1rt4zx8:last-child {
+    margin-bottom: 0;
+  }
+  
+  .status-label.svelte-1rt4zx8 {
+    font-weight: 500;
+    font-size: 14px;
+  }
+  
+  .status-value.svelte-1rt4zx8 {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+  }
+  
+  .status-icon.svelte-1rt4zx8 {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  
+  .status-icon.success.svelte-1rt4zx8 {
+    background-color: #4caf50;
+  }
+  
+  .status-icon.error.svelte-1rt4zx8 {
+    background-color: #f44336;
+  }
+  
+  .status-icon.warning.svelte-1rt4zx8 {
+    background-color: #ff9800;
+  }
+  
+  .status-value.success.svelte-1rt4zx8 {
+    color: #4caf50;
+  }
+  
+  .status-value.error.svelte-1rt4zx8 {
+    color: #f44336;
+  }
+  
+  .status-value.warning.svelte-1rt4zx8 {
+    color: #ff9800;
+  }
+  
+  .button-container.svelte-1rt4zx8 {
+    margin-bottom: 16px;
+  }
+  
+  .settings-button.svelte-1rt4zx8 {
+    width: 100%;
+    background-color: #00a884;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .settings-button.svelte-1rt4zx8:hover {
+    background-color: #008f72;
+  }
+  
+  .info.svelte-1rt4zx8 {
+    font-size: 13px;
+    line-height: 1.4;
+    color: #666;
+  }
+  
+  .info.svelte-1rt4zx8 p:where(.svelte-1rt4zx8) {
+    margin: 8px 0;
+  }
+  
+  .info.svelte-1rt4zx8 ul:where(.svelte-1rt4zx8) {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+  
+  .info.svelte-1rt4zx8 li:where(.svelte-1rt4zx8) {
+    margin-bottom: 4px;
+  }
+  
+  /* Toggle Switch */
+  .toggle.svelte-1rt4zx8 {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+  }
+  
+  .toggle.svelte-1rt4zx8 input:where(.svelte-1rt4zx8) {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .slider.svelte-1rt4zx8 {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .3s;
+    border-radius: 20px;
+  }
+  
+  .slider.svelte-1rt4zx8:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+  }
+  
+  input.svelte-1rt4zx8:checked + .slider:where(.svelte-1rt4zx8) {
+    background-color: #00a884;
+  }
+  
+  input.svelte-1rt4zx8:focus + .slider:where(.svelte-1rt4zx8) {
+    box-shadow: 0 0 1px #00a884;
+  }
+  
+  input.svelte-1rt4zx8:checked + .slider:where(.svelte-1rt4zx8):before {
+    transform: translateX(20px);
+  }
+  
+  /* Dark Mode Support */
+  @media (prefers-color-scheme: dark) {
+    .container.svelte-1rt4zx8 {
+      background-color: #222;
+      color: #e0e0e0;
+    }
+    
+    header.svelte-1rt4zx8 {
+      border-bottom-color: #444;
+    }
+    
+    h1.svelte-1rt4zx8 {
+      color: #25d366;
+    }
+    
+    .status-container.svelte-1rt4zx8 {
+      background-color: #333;
+    }
+    
+    .info.svelte-1rt4zx8 {
+      color: #aaa;
+    }
+  }
+
