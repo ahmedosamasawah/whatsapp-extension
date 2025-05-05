@@ -1,5 +1,4 @@
 <script>
-  import { onMount } from "svelte";
   import {
     apiKey,
     extensionStatus,
@@ -10,22 +9,9 @@
   let statusMessage = "";
   let isEnabled = true;
 
-  onMount(() => {
+  (() => {
     initializeStores();
-
-    const unsubscribe = extensionStatusText.subscribe((status) => {
-      statusMessage = status.text;
-    });
-
-    const unsubscribeStatus = extensionStatus.subscribe((status) => {
-      isEnabled = status.isExtensionEnabled;
-    });
-
-    return () => {
-      unsubscribe();
-      unsubscribeStatus();
-    };
-  });
+  })();
 
   function openOptions() {
     chrome.runtime.openOptionsPage();
@@ -44,60 +30,79 @@
   }
 </script>
 
-<div class="container">
-  <header>
-    <h1>WhatsApp AI Transcriber Plus</h1>
+<div class="w-80 font-sans p-4 text-gray-800">
+  <header class="mb-4 pb-3 border-b border-gray-200">
+    <h1 class="text-lg font-semibold text-[#00a884] m-0">
+      WhatsApp AI Transcriber Plus
+    </h1>
   </header>
 
-  <div class="status-container">
-    <div class="status-row">
-      <span class="status-label">Status:</span>
+  <div class="bg-gray-100 rounded-lg p-3 mb-4">
+    <div class="flex justify-between items-center mb-2">
+      <span class="font-medium text-sm">Status:</span>
       <span
-        class="status-value"
-        class:error={$extensionStatusText.type === "error"}
-        class:warning={$extensionStatusText.type === "warning"}
-        class:success={$extensionStatusText.type === "success"}
+        class={[
+          "flex items-center text-sm",
+          $extensionStatusText.type === "error" && "text-red-500",
+          $extensionStatusText.type === "warning" && "text-yellow-600",
+          $extensionStatusText.type === "success" && "text-green-600",
+        ]}
       >
         <span
-          class="status-icon"
-          class:error={$extensionStatusText.type === "error"}
-          class:warning={$extensionStatusText.type === "warning"}
-          class:success={$extensionStatusText.type === "success"}
+          class={[
+            "inline-block w-2.5 h-2.5 rounded-full mr-1.5",
+            $extensionStatusText.type === "error" && "bg-red-500",
+            $extensionStatusText.type === "warning" && "bg-yellow-600",
+            $extensionStatusText.type === "success" && "bg-green-600",
+          ]}
         ></span>
         {statusMessage}
       </span>
     </div>
 
-    <div class="status-row">
-      <span class="status-label">Extension:</span>
-      <label class="toggle">
-        <input
-          type="checkbox"
-          bind:checked={isEnabled}
-          on:change={toggleExtension}
-        />
-        <span class="slider"></span>
-      </label>
+    <div class="flex justify-between items-center">
+      <span class="font-medium text-sm">Extension:</span>
+      <button
+        type="button"
+        class={[
+          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200",
+          isEnabled ? "bg-[#00a884]" : "bg-gray-300",
+        ]}
+        onclick={toggleExtension}
+        role="switch"
+        aria-checked={isEnabled}
+      >
+        <span class="sr-only">Enable extension</span>
+        <span
+          class={[
+            "inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out",
+            isEnabled ? "translate-x-6" : "translate-x-1",
+          ]}
+        ></span>
+      </button>
     </div>
   </div>
 
-  <div class="button-container">
-    <button class="settings-button" on:click={openOptions}>
+  <div class="mb-4">
+    <button
+      class="w-full bg-[#00a884] text-white border-0 rounded-lg py-2.5 px-4 text-sm font-medium cursor-pointer transition-colors hover:bg-[#008f72]"
+      onclick={openOptions}
+    >
       Open Settings
     </button>
   </div>
 
-  <div class="info">
-    <p>
+  <div class="text-xs leading-relaxed text-gray-600">
+    <p class="my-2">
       This extension transcribes WhatsApp voice messages using AI and provides:
     </p>
-    <ul>
-      <li>Raw transcription</li>
-      <li>Cleaned version</li>
-      <li>Brief summary</li>
-      <li>Suggested reply</li>
+    <ul class="my-2 pl-5">
+      <li class="mb-1">Raw transcription</li>
+      <li class="mb-1">Cleaned version</li>
+      <li class="mb-1">Brief summary</li>
+      <li class="mb-1">Suggested reply</li>
     </ul>
-    <p>
+    <p class="my-2">
       {#if !$apiKey}
         Configure your API key in the settings to get started.
       {:else}
@@ -106,201 +111,3 @@
     </p>
   </div>
 </div>
-
-<style>
-  .container {
-    width: 320px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-      Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-    padding: 16px;
-    color: #333;
-  }
-
-  header {
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #eee;
-  }
-
-  h1 {
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0;
-    color: #00a884;
-  }
-
-  .status-container {
-    background-color: #f5f5f5;
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-  }
-
-  .status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-
-  .status-row:last-child {
-    margin-bottom: 0;
-  }
-
-  .status-label {
-    font-weight: 500;
-    font-size: 14px;
-  }
-
-  .status-value {
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-  }
-
-  .status-icon {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 6px;
-  }
-
-  .status-icon.success {
-    background-color: #4caf50;
-  }
-
-  .status-icon.error {
-    background-color: #f44336;
-  }
-
-  .status-icon.warning {
-    background-color: #ff9800;
-  }
-
-  .status-value.success {
-    color: #4caf50;
-  }
-
-  .status-value.error {
-    color: #f44336;
-  }
-
-  .status-value.warning {
-    color: #ff9800;
-  }
-
-  .button-container {
-    margin-bottom: 16px;
-  }
-
-  .settings-button {
-    width: 100%;
-    background-color: #00a884;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 10px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .settings-button:hover {
-    background-color: #008f72;
-  }
-
-  .info {
-    font-size: 13px;
-    line-height: 1.4;
-    color: #666;
-  }
-
-  .info p {
-    margin: 8px 0;
-  }
-
-  .info ul {
-    margin: 8px 0;
-    padding-left: 20px;
-  }
-
-  .info li {
-    margin-bottom: 4px;
-  }
-
-  /* Toggle Switch */
-  .toggle {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 20px;
-  }
-
-  .toggle input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: 0.3s;
-    border-radius: 20px;
-  }
-
-  .slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: 0.3s;
-    border-radius: 50%;
-  }
-
-  input:checked + .slider {
-    background-color: #00a884;
-  }
-
-  input:focus + .slider {
-    box-shadow: 0 0 1px #00a884;
-  }
-
-  input:checked + .slider:before {
-    transform: translateX(20px);
-  }
-
-  /* Dark Mode Support */
-  @media (prefers-color-scheme: dark) {
-    .container {
-      background-color: #222;
-      color: #e0e0e0;
-    }
-
-    header {
-      border-bottom-color: #444;
-    }
-
-    h1 {
-      color: #25d366;
-    }
-
-    .status-container {
-      background-color: #333;
-    }
-
-    .info {
-      color: #aaa;
-    }
-  }
-</style>

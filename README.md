@@ -1,73 +1,85 @@
-# WhatsApp AI Transcriber
+# WhatsApp AI Transcriber Plus
 
 A browser extension that adds voice message transcription functionality to WhatsApp Web, using OpenAI's Whisper API.
 
 ## Features
 
 - Transcribe voice messages in WhatsApp Web with a single click
-- Uses OpenAI's powerful Whisper API for accurate transcriptions
+- Get cleaned text with grammar fixes and filler word removal
+- Generate concise summaries of voice messages
+- Get AI-suggested replies to voice messages
+- Uses OpenAI's Whisper API for accurate transcriptions
 - Caches transcriptions for repeated access
-- Supports dark mode
-- Modern, WhatsApp-style UI
+- Modern UI built with Svelte and Tailwind CSS
 
 ## Development
 
 This extension is built with:
 
+- Vite for fast builds and development
 - Svelte for UI components
-- Rollup for bundling
+- TypeScript for type safety
+- Tailwind CSS for styling
 - Chrome Extensions Manifest V3
+
+### Project Setup
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run development server
+pnpm run dev
+
+# Build for production
+pnpm run build
+
+# Create a packaged zip for distribution
+pnpm run package
+```
 
 ### Project Structure
 
 ```
-whatsapp-transcriber/
-├── public/
-│   ├── manifest.json
-│   └── assets/
-│       └── icons/
+whatsapp-transcriber-plus/
 ├── src/
-│   ├── content/
-│   │   ├── App.svelte            # Main Svelte component for content
-│   │   ├── TranscribeButton.svelte  # Button component
-│   │   ├── TranscriptionModal.svelte # Modal with tabs
-│   │   ├── content.js            # Content script entry
-│   │   └── hook.js               # Audio intercept script
-│   ├── popup/
-│   │   ├── Popup.svelte          # Popup UI
-│   │   └── popup.js              # Popup entry
-│   ├── options/
-│   │   ├── Options.svelte        # Options page UI
-│   │   └── options.js            # Options entry
-│   ├── background/
-│   │   └── background.js         # Background script
-│   └── lib/
-│       ├── stores.js             # Svelte stores
-│       ├── api.js                # API interaction
-│       └── utils.js              # Utility functions
-├── rollup.config.js              # Build configuration
+│   ├── assets/         # Icons and static assets
+│   │   └── icons/
+│   ├── background/     # Background script
+│   │   └── index.ts
+│   ├── components/     # Shared Svelte components
+│   ├── content/        # Content scripts for WhatsApp Web
+│   │   ├── content.css
+│   │   ├── hook.ts     # Audio interception script
+│   │   └── index.ts    # Main content script
+│   ├── lib/           # Utility functions and stores
+│   │   ├── api.ts     # API client for OpenAI
+│   │   ├── stores.ts  # Svelte stores
+│   │   └── utils.ts   # Helper functions
+│   ├── options/       # Options page
+│   │   ├── index.html
+│   │   └── index.ts
+│   ├── popup/         # Extension popup
+│   │   ├── index.html
+│   │   └── index.ts
+│   └── app.css        # Global styles
+├── .gitignore
 ├── package.json
+├── postcss.config.js
+├── tailwind.config.js
+├── tsconfig.json
+├── tsconfig.node.json
+├── vite.config.ts
 └── README.md
 ```
-
-## Getting Started
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Build the extension: `npm run build`
-4. Load the extension in Chrome:
-   - Go to `chrome://extensions/`
-   - Enable Developer mode
-   - Click "Load unpacked" and select the `public` directory
 
 ## Usage
 
 1. Install the extension
-2. Open the extension popup and click "Open Settings"
-3. Enter your OpenAI API key and save
-4. Go to WhatsApp Web
-5. When you see a voice message, a "Transcribe" button will appear
-6. Click the button to transcribe the voice message
+2. Configure your OpenAI API key in the extension settings
+3. Open WhatsApp Web
+4. When you see a voice message, a "Transcribe" button will appear
+5. Click the button to transcribe and analyze the voice message
 
 ## API Key
 
@@ -78,7 +90,3 @@ This extension requires an OpenAI API key to function. You can get one by:
 3. Creating a new secret key
 
 Note: The OpenAI API is a paid service. You will be charged based on your usage.
-
-## License
-
-MIT

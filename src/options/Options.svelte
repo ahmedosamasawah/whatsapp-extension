@@ -1,5 +1,4 @@
 <script>
-  import { onMount } from "svelte";
   import {
     apiKey,
     availableModels,
@@ -10,15 +9,17 @@
   } from "../lib/stores.js";
 
   let apiKeyValue = "";
-  let isVerifying = false;
-  let verificationStatus = null;
-  let transcriptionModel = "";
+  let language = "auto";
   let analysisModel = "";
+  let isVerifying = false;
+  let promptTemplate = "";
+  let generateReply = true;
   let generateCleaned = true;
   let generateSummary = true;
-  let generateReply = true;
-  let language = "auto";
-  let promptTemplate = "";
+  let transcriptionModel = "";
+  let verificationStatus = null;
+  let modelSaveStatus = null;
+  let transcriptionSaveStatus = null;
 
   const languages = [
     { id: "auto", name: "Auto-detect" },
@@ -41,7 +42,7 @@
 3. SUMMARY: A concise summary in 1-2 sentences
 4. REPLY: A natural, helpful suggested reply to this message`;
 
-  onMount(async () => {
+  (async () => {
     await initializeStores();
 
     const unsubscribeApiKey = apiKey.subscribe((value) => {
@@ -74,7 +75,7 @@
       unsubscribeAnalysisModel();
       unsubscribeTranscriptionModel();
     };
-  });
+  })();
 
   async function saveApiKey() {
     if (!apiKeyValue) {
@@ -107,10 +108,47 @@
   }
 
   function saveModelSettings() {
+    console.log("saveModelSettings called");
+    console.log("transcriptionModel:", transcriptionModel);
+    console.log("analysisModel:", analysisModel);
+
     selectedTranscriptionModel.set(transcriptionModel);
     selectedAnalysisModel.set(analysisModel);
 
-    chrome.runtime.sendMessage({ action: "settingsUpdated" });
+    try {
+      chrome.runtime.sendMessage({ action: "settingsUpdated" }, (response) => {
+        // Check if there was an error with the messaging
+        const lastError = chrome.runtime.lastError;
+        if (lastError) {
+          console.log("Message error:", lastError.message);
+          // The settings were still saved locally even if messaging failed
+        }
+
+        console.log("settingsUpdated response:", response);
+        // Show success message
+        modelSaveStatus = {
+          success: true,
+          message: "Model settings saved successfully!",
+        };
+
+        // Clear the message after 3 seconds
+        setTimeout(() => {
+          modelSaveStatus = null;
+        }, 3000);
+      });
+    } catch (error) {
+      console.error("Error sending settings updated message:", error);
+      // The settings were still saved locally even if messaging failed
+      modelSaveStatus = {
+        success: true,
+        message: "Model settings saved successfully!",
+      };
+
+      // Clear the message after 3 seconds
+      setTimeout(() => {
+        modelSaveStatus = null;
+      }, 3000);
+    }
   }
 
   function saveTranscriptionSettings() {
@@ -122,7 +160,40 @@
       promptTemplate: promptTemplate || defaultPromptTemplate,
     });
 
-    chrome.runtime.sendMessage({ action: "settingsUpdated" });
+    try {
+      chrome.runtime.sendMessage({ action: "settingsUpdated" }, (response) => {
+        // Check if there was an error with the messaging
+        const lastError = chrome.runtime.lastError;
+        if (lastError) {
+          console.log("Message error:", lastError.message);
+          // The settings were still saved locally even if messaging failed
+        }
+
+        console.log("transcription settings updated:", response);
+        // Show success message
+        transcriptionSaveStatus = {
+          success: true,
+          message: "Transcription settings saved successfully!",
+        };
+
+        // Clear the message after 3 seconds
+        setTimeout(() => {
+          transcriptionSaveStatus = null;
+        }, 3000);
+      });
+    } catch (error) {
+      console.error("Error sending settings updated message:", error);
+      // The settings were still saved locally even if messaging failed
+      transcriptionSaveStatus = {
+        success: true,
+        message: "Transcription settings saved successfully!",
+      };
+
+      // Clear the message after 3 seconds
+      setTimeout(() => {
+        transcriptionSaveStatus = null;
+      }, 3000);
+    }
   }
 
   function resetPromptTemplate() {
@@ -130,422 +201,249 @@
   }
 </script>
 
-<div class="container">
-  <h1>WhatsApp AI Transcriber Plus Settings</h1>
+<div class="max-w-4xl mx-auto p-5 font-sans text-gray-800">
+  <h1 class="text-[#00a884] text-2xl mb-8 mt-0 text-center font-bold">
+    WhatsApp AI Transcriber Plus Settings
+  </h1>
 
-  <section class="settings-section">
-    <h2>API Key</h2>
-    <form on:submit|preventDefault={saveApiKey}>
-      <div class="form-group">
-        <label for="api-key">OpenAI API Key</label>
-        <div class="input-group">
+  <section class="bg-white p-6 rounded-xl shadow-md mb-8">
+    <h2 class="text-[#00a884] text-xl mt-0 mb-5 border-b border-gray-200 pb-3">
+      API Key
+    </h2>
+    <div>
+      <div class="mb-5">
+        <label for="api-key" class="block mb-2 font-medium"
+          >OpenAI API Key</label
+        >
+        <div class="flex gap-2">
           <input
             type="text"
             id="api-key"
             placeholder="sk-..."
             bind:value={apiKeyValue}
             disabled={isVerifying}
+            class="w-full p-2.5 border border-gray-300 rounded-md text-base"
           />
-          <button type="submit" disabled={isVerifying}>
+          <button
+            type="button"
+            onclick={saveApiKey}
+            disabled={isVerifying}
+            class="bg-[#00a884] text-white border-0 py-2.5 px-4 text-base rounded-md cursor-pointer transition-colors hover:bg-[#008f72] disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
             {isVerifying ? "Verifying..." : "Save & Verify"}
           </button>
         </div>
         {#if verificationStatus}
           <div
-            class="status-message"
-            class:success={verificationStatus.valid}
-            class:error={!verificationStatus.valid}
+            class={[
+              "mt-2.5 p-2 rounded-tr-md rounded-br-md text-sm",
+              verificationStatus.valid &&
+                "bg-green-50 text-green-600 border-l-2 border-green-500",
+              !verificationStatus.valid &&
+                "bg-red-50 text-red-600 border-l-4 border-red-500",
+            ]}
           >
             {verificationStatus.message}
           </div>
         {/if}
       </div>
-    </form>
+    </div>
 
-    <div class="info-box">
-      <h3>How to Get an OpenAI API Key</h3>
-      <ol>
-        <li>
-          Go to <a href="https://platform.openai.com/signup" target="_blank"
+    <div
+      class="mt-5 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-tr-md rounded-br-md"
+    >
+      <h3 class="mt-0 text-blue-600 text-base font-medium">
+        How to Get an OpenAI API Key
+      </h3>
+      <ol class="pl-5 list-decimal">
+        <li class="mb-1">
+          Go to <a
+            href="https://platform.openai.com/signup"
+            target="_blank"
+            class="text-blue-600 no-underline hover:underline"
             >OpenAI Platform</a
           > and create an account or sign in.
         </li>
-        <li>
+        <li class="mb-1">
           Navigate to <a
             href="https://platform.openai.com/api-keys"
-            target="_blank">API Keys</a
+            target="_blank"
+            class="text-blue-600 no-underline hover:underline">API Keys</a
           > in your account dashboard.
         </li>
-        <li>Click on "Create new secret key" and copy the key.</li>
-        <li>Paste the key in the field above and click "Save & Verify".</li>
+        <li class="mb-1">Click on "Create new secret key" and copy the key.</li>
+        <li class="mb-1">
+          Paste the key in the field above and click "Save & Verify".
+        </li>
       </ol>
-      <p class="note">
+      <p class="italic text-gray-600 mb-2">
         Note: The OpenAI API is a paid service. You will be charged based on
         your usage.
       </p>
     </div>
   </section>
 
-  <section class="settings-section">
-    <h2>AI Models</h2>
-    <form on:submit|preventDefault={saveModelSettings}>
-      <div class="form-group">
-        <label for="transcription-model">Transcription Model</label>
-        <select id="transcription-model" bind:value={transcriptionModel}>
+  <!-- <section class="bg-white p-6 rounded-xl shadow-md mb-8">
+    <h2 class="text-[#00a884] text-xl mt-0 mb-5 border-b border-gray-200 pb-3">
+      AI Models
+    </h2>
+    <div>
+      <div class="mb-5">
+        <label for="transcription-model" class="block mb-2 font-medium"
+          >Transcription Model</label
+        >
+        <select
+          id="transcription-model"
+          bind:value={transcriptionModel}
+          class="w-full p-2.5 border border-gray-300 rounded-md text-base appearance-none"
+        >
           {#each $availableModels.filter((m) => m.type === "transcription") as model}
             <option value={model.id}>{model.name}</option>
           {/each}
         </select>
       </div>
 
-      <div class="form-group">
-        <label for="analysis-model">Analysis Model</label>
-        <select id="analysis-model" bind:value={analysisModel}>
+      <div class="mb-5">
+        <label for="analysis-model" class="block mb-2 font-medium"
+          >Analysis Model</label
+        >
+        <select
+          id="analysis-model"
+          bind:value={analysisModel}
+          class="w-full p-2.5 border border-gray-300 rounded-md text-base appearance-none"
+        >
           {#each $availableModels.filter((m) => m.type === "analysis") as model}
             <option value={model.id}>{model.name}</option>
           {/each}
         </select>
-        <p class="helper-text">
+        <p class="text-xs text-gray-600 mt-1.5 mb-0">
           This model processes the transcription to generate the cleaned
           version, summary, and suggested reply.
         </p>
       </div>
 
-      <div class="button-row">
-        <button type="submit">Save Model Settings</button>
+      <div class="flex justify-between items-center mt-5">
+        {#if modelSaveStatus}
+          <div
+            class="bg-green-50 text-green-600 border-l-2 border-green-500 p-2 rounded-tr-md rounded-br-md text-sm flex-1 mr-4"
+          >
+            {modelSaveStatus.message}
+          </div>
+        {:else}
+          <div></div>
+        {/if}
+        <button
+          type="button"
+          onclick={saveModelSettings}
+          class="bg-[#00a884] text-white border-0 py-2.5 px-4 text-base rounded-md cursor-pointer transition-colors hover:bg-[#008f72]"
+        >
+          Save Model Settings
+        </button>
       </div>
-    </form>
-  </section>
+    </div>
+  </section> -->
 
-  <section class="settings-section">
-    <h2>Transcription Settings</h2>
-    <form on:submit|preventDefault={saveTranscriptionSettings}>
-      <div class="form-group">
-        <label for="language">Preferred Language</label>
-        <select id="language" bind:value={language}>
+  <section class="bg-white p-6 rounded-xl shadow-md mb-8">
+    <h2 class="text-[#00a884] text-xl mt-0 mb-5 border-b border-gray-200 pb-3">
+      Transcription Settings
+    </h2>
+    <div>
+      <div class="mb-5">
+        <label for="language" class="block mb-2 font-medium"
+          >Preferred Language</label
+        >
+        <select
+          id="language"
+          bind:value={language}
+          class="w-full p-2.5 border border-gray-300 rounded-md text-base appearance-none"
+        >
           {#each languages as lang}
             <option value={lang.id}>{lang.name}</option>
           {/each}
         </select>
-        <p class="helper-text">
+        <p class="text-xs text-gray-600 mt-1.5 mb-0">
           Auto-detect will try to identify the language in the audio.
         </p>
       </div>
 
-      <div class="checkbox-group">
-        <h3>Generate Outputs</h3>
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={generateCleaned} />
-          <span>Cleaned Version (fixed grammar, filler removal)</span>
+      <div class="mb-5">
+        <h3 class="text-gray-800 text-base font-medium my-2.5">
+          Generate Outputs
+        </h3>
+        <label class="flex items-center mb-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={generateCleaned}
+            class="w-4 h-4 text-[#00a884] bg-gray-100 border-gray-300 rounded focus:ring-[#00a884] focus:ring-2"
+          />
+          <span class="ml-2"
+            >Cleaned Version (fixed grammar, filler removal)</span
+          >
         </label>
 
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={generateSummary} />
-          <span>Brief Summary</span>
+        <label class="flex items-center mb-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={generateSummary}
+            class="w-4 h-4 text-[#00a884] bg-gray-100 border-gray-300 rounded focus:ring-[#00a884] focus:ring-2"
+          />
+          <span class="ml-2">Brief Summary</span>
         </label>
 
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={generateReply} />
-          <span>Suggested Reply</span>
+        <label class="flex items-center mb-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={generateReply}
+            class="w-4 h-4 text-[#00a884] bg-gray-100 border-gray-300 rounded focus:ring-[#00a884] focus:ring-2"
+          />
+          <span class="ml-2">Suggested Reply</span>
         </label>
       </div>
 
-      <div class="form-group">
-        <label for="prompt-template">Prompt Template</label>
-        <div class="textarea-with-buttons">
+      <div class="mb-5">
+        <label for="prompt-template" class="block mb-2 font-medium"
+          >Prompt Template</label
+        >
+        <div class="relative">
           <textarea
             id="prompt-template"
             bind:value={promptTemplate}
             rows="8"
             placeholder={defaultPromptTemplate}
+            class="w-full p-2.5 border border-gray-300 rounded-md text-base resize-y min-h-[100px] font-sans leading-normal"
           ></textarea>
           <button
             type="button"
-            class="reset-button"
-            on:click={resetPromptTemplate}
+            class="absolute bottom-2.5 right-2.5 text-xs py-1 px-2.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            onclick={resetPromptTemplate}
           >
             Reset to Default
           </button>
         </div>
-        <p class="helper-text">
+        <p class="text-xs text-gray-600 mt-1.5 mb-0">
           This prompt is sent to the AI model to generate the outputs. Use
           "TRANSCRIPT" as a placeholder for the transcription.
         </p>
       </div>
 
-      <div class="button-row">
-        <button type="submit">Save Settings</button>
+      <div class="flex justify-between items-center mt-5">
+        {#if transcriptionSaveStatus}
+          <div
+            class="bg-green-50 text-green-600 border-l-2 border-green-500 p-2 rounded-tr-md rounded-br-md text-sm flex-1 mr-4"
+          >
+            {transcriptionSaveStatus.message}
+          </div>
+        {:else}
+          <div></div>
+        {/if}
+        <button
+          type="button"
+          onclick={saveTranscriptionSettings}
+          class="bg-[#00a884] text-white border-0 py-2.5 px-4 text-base rounded-md cursor-pointer transition-colors hover:bg-[#008f72]"
+        >
+          Save Settings
+        </button>
       </div>
-    </form>
+    </div>
   </section>
 </div>
-
-<style>
-  .container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-      Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-    color: #333;
-  }
-
-  h1 {
-    color: #00a884;
-    font-size: 28px;
-    margin-top: 0;
-    margin-bottom: 30px;
-    text-align: center;
-  }
-
-  h2 {
-    color: #00a884;
-    font-size: 20px;
-    margin-top: 0;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
-  }
-
-  h3 {
-    color: #333;
-    font-size: 16px;
-    margin: 15px 0 10px;
-  }
-
-  .settings-section {
-    background-color: white;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
-  }
-
-  .form-group {
-    margin-bottom: 20px;
-  }
-
-  label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
-
-  input[type="text"],
-  select,
-  textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 16px;
-    box-sizing: border-box;
-  }
-
-  select {
-    appearance: none;
-    padding-right: 30px;
-  }
-
-  .input-group {
-    display: flex;
-    gap: 10px;
-  }
-
-  .input-group input {
-    flex-grow: 1;
-  }
-
-  button {
-    background-color: #00a884;
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    font-size: 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  button:hover {
-    background-color: #008f72;
-  }
-
-  button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-  }
-
-  .button-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 20px;
-  }
-
-  .info-box {
-    margin-top: 20px;
-    padding: 15px;
-    background-color: #f0f7ff;
-    border-left: 4px solid #4285f4;
-    border-radius: 4px;
-  }
-
-  .info-box h3 {
-    margin-top: 0;
-    color: #4285f4;
-  }
-
-  .info-box p {
-    margin-bottom: 8px;
-  }
-
-  .info-box a {
-    color: #4285f4;
-    text-decoration: none;
-  }
-
-  .info-box a:hover {
-    text-decoration: underline;
-  }
-
-  .helper-text {
-    font-size: 13px;
-    color: #666;
-    margin-top: 5px;
-    margin-bottom: 0;
-  }
-
-  .status-message {
-    margin-top: 10px;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 14px;
-  }
-
-  .status-message.success {
-    background-color: #e8f5e9;
-    color: #4caf50;
-    border-left: 3px solid #4caf50;
-  }
-
-  .status-message.error {
-    background-color: #ffebee;
-    color: #f44336;
-    border-left: 3px solid #f44336;
-  }
-
-  .checkbox-group {
-    margin-bottom: 20px;
-  }
-
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
-    cursor: pointer;
-  }
-
-  .checkbox-label input {
-    margin-right: 10px;
-  }
-
-  .textarea-with-buttons {
-    position: relative;
-  }
-
-  textarea {
-    resize: vertical;
-    min-height: 100px;
-    font-family: inherit;
-    line-height: 1.5;
-  }
-
-  .reset-button {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    font-size: 12px;
-    padding: 5px 10px;
-    background-color: #f0f0f0;
-    color: #333;
-  }
-
-  .reset-button:hover {
-    background-color: #e0e0e0;
-  }
-
-  .note {
-    font-style: italic;
-    color: #666;
-  }
-
-  /* Dark Mode Support */
-  @media (prefers-color-scheme: dark) {
-    body {
-      background-color: #121212;
-      color: #e0e0e0;
-    }
-
-    .container {
-      color: #e0e0e0;
-    }
-
-    .settings-section {
-      background-color: #222;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    }
-
-    h1,
-    h2 {
-      color: #25d366;
-    }
-
-    h2 {
-      border-bottom-color: #444;
-    }
-
-    h3 {
-      color: #e0e0e0;
-    }
-
-    input[type="text"],
-    select,
-    textarea {
-      background-color: #333;
-      border-color: #444;
-      color: #e0e0e0;
-    }
-
-    .info-box {
-      background-color: #1c2a3a;
-      border-left-color: #4285f4;
-    }
-
-    .helper-text {
-      color: #aaa;
-    }
-
-    .status-message.success {
-      background-color: #1b5e20;
-      color: #a5d6a7;
-    }
-
-    .status-message.error {
-      background-color: #b71c1c;
-      color: #ef9a9a;
-    }
-
-    .reset-button {
-      background-color: #444;
-      color: #e0e0e0;
-    }
-
-    .reset-button:hover {
-      background-color: #555;
-    }
-
-    .note {
-      color: #aaa;
-    }
-  }
-</style>

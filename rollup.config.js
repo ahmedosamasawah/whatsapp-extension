@@ -1,10 +1,12 @@
+import fs from "fs";
+import copy from "rollup-plugin-copy";
+import tailwindcss from "tailwindcss";
+import autoprefixer from "autoprefixer";
 import svelte from "rollup-plugin-svelte";
+import terser from "@rollup/plugin-terser";
+import postcss from "rollup-plugin-postcss";
 import commonjs from "@rollup/plugin-commonjs";
 import resolve from "@rollup/plugin-node-resolve";
-import terser from "@rollup/plugin-terser";
-import copy from "rollup-plugin-copy";
-import css from "rollup-plugin-css-only";
-import fs from "fs";
 
 const entryPoints = [
   { name: "content", path: "src/content/content.js", dir: "content" },
@@ -29,6 +31,7 @@ function createHtml(title, script) {
   <link rel="stylesheet" href="${script}.css">
 </head>
 <body>
+  <div id="whatsapp-transcriber-app"></div>
   <script src="${script}.js"></script>
 </body>
 </html>`;
@@ -61,7 +64,12 @@ export default entryPoints.map((entry) => {
         },
       }),
 
-      css({ output: `${entry.name}.css` }),
+      postcss({
+        plugins: [tailwindcss(), autoprefixer()],
+        extract: `${entry.name}.css`,
+        minimize: process.env.NODE_ENV === "production",
+        inject: false,
+      }),
 
       resolve({
         browser: true,

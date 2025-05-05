@@ -9,16 +9,17 @@
   export let show = false;
   export let loading = false;
   export let close = () => {};
-  export let useReply = (replyText) => {};
 
   const tabs = [
-    { id: "transcript", label: "Transcript", icon: "📝" },
-    { id: "cleaned", label: "Cleaned", icon: "✨" },
-    { id: "summary", label: "Summary", icon: "📌" },
-    { id: "reply", label: "Suggested Reply", icon: "💬" },
+    { id: "transcript", label: "Transcript" },
+    { id: "cleaned", label: "Cleaned" },
+    { id: "summary", label: "Summary" },
+    { id: "reply", label: "Suggested Reply" },
   ];
 
+  let copyTimeout;
   let activeTab = "transcript";
+  let copyButtonText = "Copy Text";
 
   function setActiveTab(tabId) {
     activeTab = tabId;
@@ -27,22 +28,11 @@
   function copyText(text) {
     navigator.clipboard.writeText(text);
 
-    const toast = document.createElement("div");
-    toast.className = "transcription-toast";
-    toast.textContent = "Copied to clipboard!";
-    document.body.appendChild(toast);
+    copyButtonText = "Copied to clipboard!";
 
-    setTimeout(() => {
-      toast.classList.add("hide");
-      setTimeout(() => {
-        document.body.removeChild(toast);
-      }, 300);
-    }, 2000);
-  }
+    if (copyTimeout) clearTimeout(copyTimeout);
 
-  function handleUseReply() {
-    useReply(data.reply);
-    close();
+    copyTimeout = setTimeout(() => (copyButtonText = "Copy Text"), 2000);
   }
 
   function handleModalClick(event) {
@@ -50,283 +40,129 @@
   }
 
   function handleKeydown(event) {
-    if (event.key === "Escape") {
-      close();
-    }
+    if (event.key === "Escape") close();
   }
 
   function handleModalKeydown(event) {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-    }
+    if (event.key === "Escape") event.stopPropagation();
   }
 </script>
 
 {#if show}
   <div
-    class="overlay"
+    class="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm animate-fadeIn"
     onclick={close}
-    onkeydown={handleKeydown}
     role="dialog"
     aria-modal="true"
     tabindex="-1"
+    onkeydown={handleKeydown}
   ></div>
   <div
-    class="modal"
+    class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl p-0 z-[1000] max-w-lg w-[90%] overflow-hidden animate-scaleIn flex flex-col max-h-[90vh]"
     onclick={handleModalClick}
     onkeydown={handleModalKeydown}
+    tabindex="0"
     role="dialog"
     aria-labelledby="modal-title"
   >
-    <div class="modal-header">
-      <div class="modal-title" id="modal-title">Voice Message Analysis</div>
-      <button class="modal-close-btn" onclick={close}>✕</button>
+    <div
+      class="flex justify-between items-center p-4 bg-gray-100 border-b border-gray-200"
+    >
+      <div class="font-semibold text-[#128c7e] text-base" id="modal-title">
+        Voice Message Analysis
+      </div>
+      <button
+        class="bg-white bg-opacity-0 border-none text-gray-500 text-lg cursor-pointer w-6 h-6 flex items-center justify-center rounded-full transition-all hover:bg-gray-200 hover:text-gray-700"
+        onclick={close}>✕</button
+      >
     </div>
 
-    <div class="modal-tabs">
+    <div class="flex bg-gray-100 border-b border-gray-200">
       {#each tabs as tab}
         <button
-          class="tab-button"
-          class:active={activeTab === tab.id}
-          onclick={() => setActiveTab(tab.id)}
+          class={[
+            "flex-1 py-2.5 px-2 border-opacity-0 cursor-pointer transition-all flex flex-col items-center text-xs text-black",
+            activeTab === tab.id &&
+              "border-b-[3px] border-[#00a884] text-[#00a884] font-medium bg-[#00a884]",
+            activeTab !== tab.id &&
+              "hover:bg-gray-200 bg-white border-gray-200",
+          ]}
           disabled={loading || !data[tab.id]}
+          onclick={() => setActiveTab(tab.id)}
         >
-          <span class="tab-icon">{tab.icon}</span>
-          <span class="tab-label">{tab.label}</span>
+          <span>{tab.label}</span>
         </button>
       {/each}
     </div>
 
-    <div class="modal-content">
+    <div class="p-5 overflow-y-auto max-h-[60vh] flex-grow">
       {#if loading}
-        <div class="loading-container">
-          <div class="loading-spinner"></div>
-          <div class="loading-text">Analyzing voice message...</div>
+        <div class="flex flex-col items-center justify-center py-10">
+          <div
+            class="w-10 h-10 border-4 border-gray-200 border-t-[#00a884] rounded-full animate-spin mb-5"
+          ></div>
+          <div class="text-gray-500 text-sm">Analyzing voice message...</div>
+        </div>
+      {:else if data.transcript.startsWith("ERROR:")}
+        <div class="flex flex-col items-center justify-center py-5">
+          <div
+            class="w-12 h-12 text-red-500 mb-3 flex items-center justify-center"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              class="w-12 h-12"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </div>
+          <div class="text-red-500 font-medium text-center text-base mb-2">
+            {data.transcript.replace("ERROR: ", "")}
+          </div>
+          <div class="text-gray-600 text-sm text-center">{data.cleaned}</div>
+          <div class="mt-4 text-center"></div>
         </div>
       {:else if activeTab === "transcript"}
-        <div class="content-section">
-          <p class="section-text">{data.transcript}</p>
+        <div class="leading-relaxed">
+          <p class="m-0 whitespace-pre-wrap">{data.transcript}</p>
         </div>
       {:else if activeTab === "cleaned"}
-        <div class="content-section">
-          <p class="section-text">{data.cleaned}</p>
+        <div class="leading-relaxed">
+          <p class="m-0 whitespace-pre-wrap">{data.cleaned}</p>
         </div>
       {:else if activeTab === "summary"}
-        <div class="content-section">
-          <p class="section-text">{data.summary}</p>
+        <div class="leading-relaxed">
+          <p class="m-0 whitespace-pre-wrap">{data.summary}</p>
         </div>
       {:else if activeTab === "reply"}
-        <div class="content-section">
-          <p class="section-text">{data.reply}</p>
+        <div class="leading-relaxed">
+          <p class="m-0 whitespace-pre-wrap">{data.reply}</p>
         </div>
       {/if}
     </div>
 
-    <div class="modal-footer">
+    <div
+      class="p-3 flex justify-end gap-2.5 border-t border-gray-200 bg-gray-100"
+    >
       {#if !loading}
         <button
-          class="copy-button"
-          onclick={() => copyText(data[activeTab])}
           disabled={!data[activeTab]}
+          onclick={() => copyText(data[activeTab])}
+          class="py-2 px-4 border-none rounded-full text-xs cursor-pointer transition-all font-medium bg-[#00a884] text-white hover:bg-[#008f72]"
         >
-          Copy Text
+          {copyButtonText}
         </button>
-
-        {#if activeTab === "reply" && data.reply}
-          <button class="use-reply-button" onclick={handleUseReply}>
-            Use Reply
-          </button>
-        {/if}
       {/if}
     </div>
   </div>
 {/if}
 
 <style>
-  .overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.6);
-    z-index: 999;
-    backdrop-filter: blur(3px);
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  .modal {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-    padding: 0;
-    z-index: 1000;
-    max-width: 500px;
-    width: 90%;
-    overflow: hidden;
-    animation: scaleIn 0.2s ease-out;
-    display: flex;
-    flex-direction: column;
-    max-height: 90vh;
-  }
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    background-color: #f0f2f5;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  .modal-title {
-    font-weight: 600;
-    color: #128c7e;
-    font-size: 16px;
-  }
-
-  .modal-close-btn {
-    background: none;
-    border: none;
-    color: #888;
-    font-size: 18px;
-    cursor: pointer;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-  }
-
-  .modal-close-btn:hover {
-    background-color: #e0e0e0;
-    color: #555;
-  }
-
-  .modal-tabs {
-    display: flex;
-    background-color: #f0f2f5;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  .tab-button {
-    flex: 1;
-    padding: 10px 8px;
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-size: 12px;
-    color: #666;
-  }
-
-  .tab-button.active {
-    border-bottom-color: #00a884;
-    color: #00a884;
-    font-weight: 500;
-  }
-
-  .tab-button:hover:not(.active):not(:disabled) {
-    background-color: #e8e8e8;
-  }
-
-  .tab-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .tab-icon {
-    font-size: 16px;
-    margin-bottom: 4px;
-  }
-
-  .modal-content {
-    padding: 20px;
-    overflow-y: auto;
-    max-height: 60vh;
-    flex-grow: 1;
-  }
-
-  .content-section {
-    line-height: 1.6;
-  }
-
-  .section-text {
-    margin: 0;
-    white-space: pre-wrap;
-  }
-
-  .modal-footer {
-    padding: 12px 20px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    border-top: 1px solid #e0e0e0;
-    background-color: #f0f2f5;
-  }
-
-  .copy-button,
-  .use-reply-button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 16px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-weight: 500;
-  }
-
-  .copy-button {
-    background-color: #00a884;
-    color: white;
-  }
-
-  .copy-button:hover {
-    background-color: #008f72;
-  }
-
-  .use-reply-button {
-    background-color: #4285f4;
-    color: white;
-  }
-
-  .use-reply-button:hover {
-    background-color: #3367d6;
-  }
-
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
-  }
-
-  .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #00a884;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 20px;
-  }
-
-  .loading-text {
-    color: #666;
-    font-size: 14px;
-  }
-
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -365,61 +201,6 @@
     }
   }
 
-  @media (prefers-color-scheme: dark) {
-    .modal {
-      background-color: #222;
-    }
-
-    .modal-header {
-      background-color: #333;
-      border-bottom-color: #444;
-    }
-
-    .modal-title {
-      color: #25d366;
-    }
-
-    .modal-close-btn {
-      color: #aaa;
-    }
-
-    .modal-close-btn:hover {
-      background-color: #444;
-      color: #ddd;
-    }
-
-    .modal-tabs {
-      background-color: #333;
-      border-bottom-color: #444;
-    }
-
-    .tab-button {
-      color: #aaa;
-    }
-
-    .tab-button.active {
-      color: #25d366;
-      border-bottom-color: #25d366;
-    }
-
-    .tab-button:hover:not(.active):not(:disabled) {
-      background-color: #444;
-    }
-
-    .modal-content {
-      color: #e0e0e0;
-    }
-
-    .modal-footer {
-      border-top-color: #444;
-      background-color: #333;
-    }
-
-    .loading-text {
-      color: #aaa;
-    }
-  }
-
   :global(.transcription-toast) {
     position: fixed;
     bottom: 20px;
@@ -437,5 +218,17 @@
 
   :global(.transcription-toast.hide) {
     animation: fadeOut 0.3s ease;
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .animate-scaleIn {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
   }
 </style>

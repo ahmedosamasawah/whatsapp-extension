@@ -1,5 +1,6 @@
 import { mount } from "svelte";
 import App from "./App.svelte";
+import "../app.css";
 
 async function initApp() {
   const container = document.createElement("div");

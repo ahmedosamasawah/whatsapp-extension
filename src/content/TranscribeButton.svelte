@@ -54,9 +54,11 @@
 </script>
 
 <button
-  class="transcribe-button"
-  class:transcribed={isTranscribed}
-  class:loading={isLoading}
+  class={[
+    "transcribe-button",
+    isTranscribed && "transcribed",
+    isLoading && "loading",
+  ]}
   onclick={handleClick}
 >
   {buttonText}

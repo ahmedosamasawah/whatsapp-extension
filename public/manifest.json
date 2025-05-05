@@ -10,12 +10,7 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "WhatsApp AI Transcriber Plus",
-    "default_icon": {
-      "16": "assets/icons/icon16.png",
-      "48": "assets/icons/icon16.png",
-      "128": "assets/icons/icon16.png"
-    }
+    "default_title": "WhatsApp AI Transcriber Plus"
   },
   "options_page": "options/options.html",
   "content_scripts": [
@@ -37,13 +32,13 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["assets/*"],
+      "resources": [
+        "assets/*",
+        "content/*.css",
+        "popup/*.css",
+        "options/*.css"
+      ],
       "matches": ["https://web.whatsapp.com/*"]
     }
-  ],
-  "icons": {
-    "16": "assets/icons/icon16.png",
-    "48": "assets/icons/icon16.png",
-    "128": "assets/icons/icon16.png"
-  }
+  ]
 }

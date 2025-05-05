@@ -1,5 +1,4 @@
 <script>
-  import { onMount, onDestroy } from "svelte";
   import { mount } from "svelte";
   import TranscribeButton from "./TranscribeButton.svelte";
   import TranscriptionModal from "./TranscriptionModal.svelte";
@@ -34,7 +33,9 @@
   };
   let currentBubbleId = null;
 
-  onMount(async () => {
+  (async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     await initializeStores();
     setupStorePersistence();
     validateApiKeyAccess();
@@ -46,11 +47,7 @@
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
-  });
-
-  onDestroy(() => {
-    if (observer) observer.disconnect();
-  });
+  })();
 
   function initializeButtons() {
     document.querySelectorAll(playSelectors.join(",")).forEach((playBtn) => {
@@ -128,18 +125,45 @@
     const blob = audioData;
     audioData = null;
 
-    const result = await processVoiceMessage(blob);
+    try {
+      const result = await processVoiceMessage(blob);
 
-    modalData = result;
-    modalLoading = false;
+      modalData = result;
+      modalLoading = false;
 
-    const component = buttons.get(currentBubbleId);
-    if (component) component.setTranscribed(result);
+      const component = buttons.get(currentBubbleId);
+      if (component) component.setTranscribed(result);
 
-    transcriptionCache.update((cache) => {
-      cache.set(currentBubbleId, result);
-      return cache;
-    });
+      transcriptionCache.update((cache) => {
+        cache.set(currentBubbleId, result);
+        return cache;
+      });
+    } catch (error) {
+      console.error("Error processing audio:", error);
+
+      // Handle API key error specifically
+      if (error.message === "API key not configured") {
+        modalData = {
+          transcript: "ERROR: API key not configured",
+          cleaned:
+            "Please configure your OpenAI API key in the extension settings.",
+          summary:
+            "Open the extension popup and add your API key to use this feature.",
+          reply:
+            "Click on the extension icon in your browser toolbar to set up your API key.",
+        };
+      } else {
+        // Handle other errors
+        modalData = {
+          transcript: `ERROR: ${error.message}`,
+          cleaned: "An error occurred while processing your voice message.",
+          summary: "Please try again or check the extension settings.",
+          reply: "",
+        };
+      }
+
+      modalLoading = false;
+    }
   }
 
   function showTranscription({ data, bubbleId }) {
@@ -152,20 +176,6 @@
   function handleModalClose() {
     showModal = false;
     currentBubbleId = null;
-  }
-
-  function handleUseReply(e) {
-    const reply = e.detail;
-
-    const inputField = document.querySelector('[contenteditable="true"]');
-    if (!inputField) return;
-
-    inputField.textContent = reply;
-
-    const event = new Event("input", { bubbles: true });
-    inputField.dispatchEvent(event);
-
-    inputField.focus();
   }
 
   async function validateApiKeyAccess() {
@@ -184,5 +194,4 @@
   show={showModal}
   loading={modalLoading}
   close={handleModalClose}
-  useReply={(reply) => handleUseReply({ detail: reply })}
 />

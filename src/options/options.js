@@ -1,8 +1,9 @@
+import "../app.css";
 import { mount } from "svelte";
 import Options from "./Options.svelte";
 
 const app = mount(Options, {
-  target: document.body,
+  target: document.getElementById("whatsapp-transcriber-app"),
 });
 
 export default app;
