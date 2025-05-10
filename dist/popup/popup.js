@@ -19,11 +19,6 @@ var popup = (function () {
 
 	const noop = () => {};
 
-	/** @param {Function} fn */
-	function run(fn) {
-		return fn();
-	}
-
 	/** @param {Array<() => void>} arr */
 	function run_all(arr) {
 		for (var i = 0; i < arr.length; i++) {
@@ -94,53 +89,6 @@ var popup = (function () {
 			throw error;
 		} else {
 			throw new Error(`https://svelte.dev/e/derived_references_self`);
-		}
-	}
-
-	/**
-	 * `%rune%` cannot be used inside an effect cleanup function
-	 * @param {string} rune
-	 * @returns {never}
-	 */
-	function effect_in_teardown(rune) {
-		if (DEV) {
-			const error = new Error(`effect_in_teardown\n\`${rune}\` cannot be used inside an effect cleanup function\nhttps://svelte.dev/e/effect_in_teardown`);
-
-			error.name = 'Svelte error';
-			throw error;
-		} else {
-			throw new Error(`https://svelte.dev/e/effect_in_teardown`);
-		}
-	}
-
-	/**
-	 * Effect cannot be created inside a `$derived` value that was not itself created inside an effect
-	 * @returns {never}
-	 */
-	function effect_in_unowned_derived() {
-		if (DEV) {
-			const error = new Error(`effect_in_unowned_derived\nEffect cannot be created inside a \`$derived\` value that was not itself created inside an effect\nhttps://svelte.dev/e/effect_in_unowned_derived`);
-
-			error.name = 'Svelte error';
-			throw error;
-		} else {
-			throw new Error(`https://svelte.dev/e/effect_in_unowned_derived`);
-		}
-	}
-
-	/**
-	 * `%rune%` can only be used inside an effect (e.g. during component initialisation)
-	 * @param {string} rune
-	 * @returns {never}
-	 */
-	function effect_orphan(rune) {
-		if (DEV) {
-			const error = new Error(`effect_orphan\n\`${rune}\` can only be used inside an effect (e.g. during component initialisation)\nhttps://svelte.dev/e/effect_orphan`);
-
-			error.name = 'Svelte error';
-			throw error;
-		} else {
-			throw new Error(`https://svelte.dev/e/effect_orphan`);
 		}
 	}
 
@@ -222,10 +170,6 @@ var popup = (function () {
 
 	let legacy_mode_flag = false;
 	let tracing_mode_flag = false;
-
-	function enable_legacy_mode_flag() {
-		legacy_mode_flag = true;
-	}
 
 	const TEMPLATE_FRAGMENT = 1;
 	const TEMPLATE_USE_IMPORT_NODE = 1 << 1;
@@ -330,15 +274,6 @@ var popup = (function () {
 			l: null
 		});
 
-		if (legacy_mode_flag && !runes) {
-			component_context.l = {
-				s: null,
-				u: null,
-				r1: [],
-				r2: source(false)
-			};
-		}
-
 		teardown(() => {
 			/** @type {ComponentContext} */ (ctx).d = true;
 		});
@@ -391,7 +326,7 @@ var popup = (function () {
 
 	/** @returns {boolean} */
 	function is_runes() {
-		return !legacy_mode_flag || (component_context !== null && component_context.l === null);
+		return !legacy_mode_flag ;
 	}
 
 	/** @import { Source } from '#client' */
@@ -463,7 +398,7 @@ var popup = (function () {
 					s = with_parent(() => state(descriptor.value, stack));
 					sources.set(prop, s);
 				} else {
-					set(
+					set$2(
 						s,
 						with_parent(() => proxy(descriptor.value))
 					);
@@ -491,10 +426,10 @@ var popup = (function () {
 						var n = Number(prop);
 
 						if (Number.isInteger(n) && n < ls.v) {
-							set(ls, n);
+							set$2(ls, n);
 						}
 					}
-					set(s, UNINITIALIZED);
+					set$2(s, UNINITIALIZED);
 					update_version(version);
 				}
 
@@ -516,7 +451,7 @@ var popup = (function () {
 				}
 
 				if (s !== undefined) {
-					var v = get$1(s);
+					var v = get$3(s);
 					return v === UNINITIALIZED ? undefined : v;
 				}
 
@@ -528,7 +463,7 @@ var popup = (function () {
 
 				if (descriptor && 'value' in descriptor) {
 					var s = sources.get(prop);
-					if (s) descriptor.value = get$1(s);
+					if (s) descriptor.value = get$3(s);
 				} else if (descriptor === undefined) {
 					var source = sources.get(prop);
 					var value = source?.v;
@@ -563,7 +498,7 @@ var popup = (function () {
 						sources.set(prop, s);
 					}
 
-					var value = get$1(s);
+					var value = get$3(s);
 					if (value === UNINITIALIZED) {
 						return false;
 					}
@@ -581,7 +516,7 @@ var popup = (function () {
 					for (var i = value; i < /** @type {Source<number>} */ (s).v; i += 1) {
 						var other_s = sources.get(i + '');
 						if (other_s !== undefined) {
-							set(other_s, UNINITIALIZED);
+							set$2(other_s, UNINITIALIZED);
 						} else if (i in target) {
 							// If the item exists in the original, we need to create a uninitialized source,
 							// else a later read of the property would result in a source being created with
@@ -599,7 +534,7 @@ var popup = (function () {
 				if (s === undefined) {
 					if (!has || get_descriptor(target, prop)?.writable) {
 						s = with_parent(() => state(undefined, stack));
-						set(
+						set$2(
 							s,
 							with_parent(() => proxy(value))
 						);
@@ -607,7 +542,7 @@ var popup = (function () {
 					}
 				} else {
 					has = s.v !== UNINITIALIZED;
-					set(
+					set$2(
 						s,
 						with_parent(() => proxy(value))
 					);
@@ -630,7 +565,7 @@ var popup = (function () {
 						var n = Number(prop);
 
 						if (Number.isInteger(n) && n >= ls.v) {
-							set(ls, n + 1);
+							set$2(ls, n + 1);
 						}
 					}
 
@@ -641,7 +576,7 @@ var popup = (function () {
 			},
 
 			ownKeys(target) {
-				get$1(version);
+				get$3(version);
 
 				var own_keys = Reflect.ownKeys(target).filter((key) => {
 					var source = sources.get(key);
@@ -668,7 +603,7 @@ var popup = (function () {
 	 * @param {1 | -1} [d]
 	 */
 	function update_version(signal, d = 1) {
-		set(signal, signal.v + d);
+		set$2(signal, signal.v + d);
 	}
 
 	/**
@@ -897,12 +832,6 @@ var popup = (function () {
 			s.equals = safe_equals;
 		}
 
-		// bind the signal to the component context, in case we need to
-		// track updates to trigger beforeUpdate/afterUpdate callbacks
-		if (legacy_mode_flag && component_context !== null && component_context.l !== null) {
-			(component_context.l.s ??= []).push(s);
-		}
-
 		return s;
 	}
 
@@ -913,7 +842,7 @@ var popup = (function () {
 	 * @param {boolean} [should_proxy]
 	 * @returns {V}
 	 */
-	function set(source, value, should_proxy = false) {
+	function set$2(source, value, should_proxy = false) {
 		if (
 			active_reaction !== null &&
 			!untracking &&
@@ -972,7 +901,6 @@ var popup = (function () {
 			// properly for itself, we need to ensure the current effect actually gets
 			// scheduled. i.e: `$effect(() => x++)`
 			if (
-				is_runes() &&
 				active_effect !== null &&
 				(active_effect.f & CLEAN) !== 0 &&
 				(active_effect.f & (BRANCH_EFFECT | ROOT_EFFECT)) === 0
@@ -1013,8 +941,6 @@ var popup = (function () {
 	function mark_reactions(signal, status) {
 		var reactions = signal.reactions;
 		if (reactions === null) return;
-
-		var runes = is_runes();
 		var length = reactions.length;
 
 		for (var i = 0; i < length; i++) {
@@ -1023,9 +949,6 @@ var popup = (function () {
 
 			// Skip any effects that are already dirty
 			if ((flags & DIRTY) !== 0) continue;
-
-			// In legacy mode, skip the current effect to prevent infinite loops
-			if (!runes && reaction === active_effect) continue;
 
 			// Inspect effects need to run immediately, so that the stack trace makes sense
 			if (DEV && (flags & INSPECT_EFFECT) !== 0) {
@@ -1256,23 +1179,6 @@ var popup = (function () {
 	/** @import { ComponentContext, ComponentContextLegacy, Derived, Effect, TemplateNode, TransitionManager } from '#client' */
 
 	/**
-	 * @param {'$effect' | '$effect.pre' | '$inspect'} rune
-	 */
-	function validate_effect(rune) {
-		if (active_effect === null && active_reaction === null) {
-			effect_orphan(rune);
-		}
-
-		if (active_reaction !== null && (active_reaction.f & UNOWNED) !== 0 && active_effect === null) {
-			effect_in_unowned_derived();
-		}
-
-		if (is_destroying_effect) {
-			effect_in_teardown(rune);
-		}
-	}
-
-	/**
 	 * @param {Effect} effect
 	 * @param {Effect} parent_effect
 	 */
@@ -1374,55 +1280,6 @@ var popup = (function () {
 	}
 
 	/**
-	 * Internal representation of `$effect(...)`
-	 * @param {() => void | (() => void)} fn
-	 */
-	function user_effect(fn) {
-		validate_effect('$effect');
-
-		// Non-nested `$effect(...)` in a component should be deferred
-		// until the component is mounted
-		var defer =
-			active_effect !== null &&
-			(active_effect.f & BRANCH_EFFECT) !== 0 &&
-			component_context !== null &&
-			!component_context.m;
-
-		if (DEV) {
-			define_property(fn, 'name', {
-				value: '$effect'
-			});
-		}
-
-		if (defer) {
-			var context = /** @type {ComponentContext} */ (component_context);
-			(context.e ??= []).push({
-				fn,
-				effect: active_effect,
-				reaction: active_reaction
-			});
-		} else {
-			var signal = effect(fn);
-			return signal;
-		}
-	}
-
-	/**
-	 * Internal representation of `$effect.pre(...)`
-	 * @param {() => void | (() => void)} fn
-	 * @returns {Effect}
-	 */
-	function user_pre_effect(fn) {
-		validate_effect('$effect.pre');
-		if (DEV) {
-			define_property(fn, 'name', {
-				value: '$effect.pre'
-			});
-		}
-		return render_effect(fn);
-	}
-
-	/**
 	 * An effect root whose children can transition out
 	 * @param {() => void} fn
 	 * @returns {(options?: { outro?: boolean }) => Promise<void>}
@@ -1454,21 +1311,13 @@ var popup = (function () {
 	}
 
 	/**
-	 * @param {() => void | (() => void)} fn
-	 * @returns {Effect}
-	 */
-	function render_effect(fn) {
-		return create_effect(RENDER_EFFECT, fn, true);
-	}
-
-	/**
 	 * @param {(...expressions: any) => void | (() => void)} fn
 	 * @param {Array<() => any>} thunks
 	 * @returns {Effect}
 	 */
 	function template_effect(fn, thunks = [], d = derived$1) {
 		const deriveds = thunks.map(d);
-		const effect = () => fn(...deriveds.map(get$1));
+		const effect = () => fn(...deriveds.map(get$3));
 
 		if (DEV) {
 			define_property(effect, 'name', {
@@ -2520,7 +2369,7 @@ var popup = (function () {
 	 * @param {Value<V>} signal
 	 * @returns {V}
 	 */
-	function get$1(signal) {
+	function get$3(signal) {
 		var flags = signal.f;
 		var is_derived = (flags & DERIVED) !== 0;
 
@@ -2633,80 +2482,6 @@ var popup = (function () {
 	 */
 	function set_signal_status(signal, status) {
 		signal.f = (signal.f & STATUS_MASK) | status;
-	}
-
-	/**
-	 * Possibly traverse an object and read all its properties so that they're all reactive in case this is `$state`.
-	 * Does only check first level of an object for performance reasons (heuristic should be good for 99% of all cases).
-	 * @param {any} value
-	 * @returns {void}
-	 */
-	function deep_read_state(value) {
-		if (typeof value !== 'object' || !value || value instanceof EventTarget) {
-			return;
-		}
-
-		if (STATE_SYMBOL in value) {
-			deep_read(value);
-		} else if (!Array.isArray(value)) {
-			for (let key in value) {
-				const prop = value[key];
-				if (typeof prop === 'object' && prop && STATE_SYMBOL in prop) {
-					deep_read(prop);
-				}
-			}
-		}
-	}
-
-	/**
-	 * Deeply traverse an object and read all its properties
-	 * so that they're all reactive in case this is `$state`
-	 * @param {any} value
-	 * @param {Set<any>} visited
-	 * @returns {void}
-	 */
-	function deep_read(value, visited = new Set()) {
-		if (
-			typeof value === 'object' &&
-			value !== null &&
-			// We don't want to traverse DOM elements
-			!(value instanceof EventTarget) &&
-			!visited.has(value)
-		) {
-			visited.add(value);
-			// When working with a possible SvelteDate, this
-			// will ensure we capture changes to it.
-			if (value instanceof Date) {
-				value.getTime();
-			}
-			for (let key in value) {
-				try {
-					deep_read(value[key], visited);
-				} catch (e) {
-					// continue
-				}
-			}
-			const proto = get_prototype_of(value);
-			if (
-				proto !== Object.prototype &&
-				proto !== Array.prototype &&
-				proto !== Map.prototype &&
-				proto !== Set.prototype &&
-				proto !== Date.prototype
-			) {
-				const descriptors = get_descriptors(proto);
-				for (let key in descriptors) {
-					const get = descriptors[key].get;
-					if (get) {
-						try {
-							get.call(value);
-						} catch (e) {
-							// continue
-						}
-					}
-				}
-			}
-		}
 	}
 
 	/**
@@ -2957,18 +2732,6 @@ var popup = (function () {
 	}
 
 	/**
-	 * Don't mark this as side-effect-free, hydration needs to walk all nodes
-	 * @param {any} value
-	 */
-	function text(value = '') {
-		{
-			var t = create_text(value + '');
-			assign_nodes(t, t);
-			return t;
-		}
-	}
-
-	/**
 	 * Assign the created (or in hydration mode, traversed) dom elements to the current block
 	 * and insert the elements into the dom (in client mode).
 	 * @param {Text | Comment | Element} anchor
@@ -2986,6 +2749,22 @@ var popup = (function () {
 
 	/** @import { ComponentContext, Effect, TemplateNode } from '#client' */
 	/** @import { Component, ComponentType, SvelteComponent, MountOptions } from '../../index.js' */
+
+	/**
+	 * @param {Element} text
+	 * @param {string} value
+	 * @returns {void}
+	 */
+	function set_text(text, value) {
+		// For objects, we apply string coercion (which might make things like $state array references in the template reactive) before diffing
+		var str = value == null ? '' : typeof value === 'object' ? value + '' : value;
+		// @ts-expect-error
+		if (str !== (text.__t ??= text.nodeValue)) {
+			// @ts-expect-error
+			text.__t = str;
+			text.nodeValue = str + '';
+		}
+	}
 
 	/**
 	 * Mounts a component to the given target and returns the exports and potentially the props (if compiled with `accessors: true`) of the component.
@@ -3357,84 +3136,6 @@ var popup = (function () {
 		return setters;
 	}
 
-	/** @import { ComponentContextLegacy } from '#client' */
-
-	/**
-	 * Legacy-mode only: Call `onMount` callbacks and set up `beforeUpdate`/`afterUpdate` effects
-	 * @param {boolean} [immutable]
-	 */
-	function init(immutable = false) {
-		const context = /** @type {ComponentContextLegacy} */ (component_context);
-
-		const callbacks = context.l.u;
-		if (!callbacks) return;
-
-		let props = () => deep_read_state(context.s);
-
-		if (immutable) {
-			let version = 0;
-			let prev = /** @type {Record<string, any>} */ ({});
-
-			// In legacy immutable mode, before/afterUpdate only fire if the object identity of a prop changes
-			const d = derived$1(() => {
-				let changed = false;
-				const props = context.s;
-				for (const key in props) {
-					if (props[key] !== prev[key]) {
-						prev[key] = props[key];
-						changed = true;
-					}
-				}
-				if (changed) version++;
-				return version;
-			});
-
-			props = () => get$1(d);
-		}
-
-		// beforeUpdate
-		if (callbacks.b.length) {
-			user_pre_effect(() => {
-				observe_all(context, props);
-				run_all(callbacks.b);
-			});
-		}
-
-		// onMount (must run before afterUpdate)
-		user_effect(() => {
-			const fns = untrack(() => callbacks.m.map(run));
-			return () => {
-				for (const fn of fns) {
-					if (typeof fn === 'function') {
-						fn();
-					}
-				}
-			};
-		});
-
-		// afterUpdate
-		if (callbacks.a.length) {
-			user_effect(() => {
-				observe_all(context, props);
-				run_all(callbacks.a);
-			});
-		}
-	}
-
-	/**
-	 * Invoke the getter of all signals associated with a component
-	 * so they can be registered to the effect this function is called in.
-	 * @param {ComponentContextLegacy} context
-	 * @param {(() => void)} props
-	 */
-	function observe_all(context, props) {
-		if (context.l.s) {
-			for (const signal of context.l.s) get$1(signal);
-		}
-
-		props();
-	}
-
 	/** @import { Readable } from './public' */
 
 	/**
@@ -3656,7 +3357,7 @@ var popup = (function () {
 	 * @param {Readable<T>} store
 	 * @returns {T}
 	 */
-	function get(store) {
+	function get$2(store) {
 		let value;
 		subscribe_to_store(store, (_) => (value = _))();
 		// @ts-expect-error
@@ -3702,7 +3403,7 @@ var popup = (function () {
 						// inside a derived, we will hit the `state_unsafe_mutation` error if we `set` the value
 						entry.source.v = v;
 					} else {
-						set(entry.source, v);
+						set$2(entry.source, v);
 					}
 				});
 
@@ -3714,10 +3415,10 @@ var popup = (function () {
 		// so we just use the `get` for the stores, less performant but it avoids to create a memory leak
 		// and it will keep the value consistent
 		if (store && IS_UNMOUNTED in stores) {
-			return get(store);
+			return get$2(store);
 		}
 
-		return get$1(entry.source);
+		return get$3(entry.source);
 	}
 
 	/**
@@ -3791,24 +3492,426 @@ var popup = (function () {
 		((window.__svelte ??= {}).v ??= new Set()).add(PUBLIC_VERSION);
 	}
 
-	enable_legacy_mode_flag();
+	function promisifyRequest(request) {
+	    return new Promise((resolve, reject) => {
+	        // @ts-ignore - file size hacks
+	        request.oncomplete = request.onsuccess = () => resolve(request.result);
+	        // @ts-ignore - file size hacks
+	        request.onabort = request.onerror = () => reject(request.error);
+	    });
+	}
+	function createStore(dbName, storeName) {
+	    const request = indexedDB.open(dbName);
+	    request.onupgradeneeded = () => request.result.createObjectStore(storeName);
+	    const dbp = promisifyRequest(request);
+	    return (txMode, callback) => dbp.then((db) => callback(db.transaction(storeName, txMode).objectStore(storeName)));
+	}
+	let defaultGetStoreFunc;
+	function defaultGetStore() {
+	    if (!defaultGetStoreFunc) {
+	        defaultGetStoreFunc = createStore('keyval-store', 'keyval');
+	    }
+	    return defaultGetStoreFunc;
+	}
+	/**
+	 * Get a value by its key.
+	 *
+	 * @param key
+	 * @param customStore Method to get a custom store. Use with caution (see the docs).
+	 */
+	function get$1(key, customStore = defaultGetStore()) {
+	    return customStore('readonly', (store) => promisifyRequest(store.get(key)));
+	}
+	/**
+	 * Set a value with a key.
+	 *
+	 * @param key
+	 * @param value
+	 * @param customStore Method to get a custom store. Use with caution (see the docs).
+	 */
+	function set$1(key, value, customStore = defaultGetStore()) {
+	    return customStore('readwrite', (store) => {
+	        store.put(value, key);
+	        return promisifyRequest(store.transaction);
+	    });
+	}
+	function eachCursor(store, callback) {
+	    store.openCursor().onsuccess = function () {
+	        if (!this.result)
+	            return;
+	        callback(this.result);
+	        this.result.continue();
+	    };
+	    return promisifyRequest(store.transaction);
+	}
+	/**
+	 * Get all entries in the store. Each entry is an array of `[key, value]`.
+	 *
+	 * @param customStore Method to get a custom store. Use with caution (see the docs).
+	 */
+	function entries(customStore = defaultGetStore()) {
+	    return customStore('readonly', (store) => {
+	        // Fast path for modern browsers
+	        // (although, hopefully we'll get a simpler path some day)
+	        if (store.getAll && store.getAllKeys) {
+	            return Promise.all([
+	                promisifyRequest(store.getAllKeys()),
+	                promisifyRequest(store.getAll()),
+	            ]).then(([keys, values]) => keys.map((key, i) => [key, values[i]]));
+	        }
+	        const items = [];
+	        return customStore('readonly', (store) => eachCursor(store, (cursor) => items.push([cursor.key, cursor.value])).then(() => items));
+	    });
+	}
 
-	const apiKey = writable("");
+	/** @param {string} key @param {string} [storageType='local'] @returns {Promise<any>} */
+	async function get(key, storageType = "local") {
+	  if (storageType === "indexedDB") return await get$1(key);
+	  else {
+	    return new Promise((resolve) =>
+	      chrome.storage[storageType].get([key], (result) =>
+	        resolve(result[key] !== undefined ? result[key] : null)
+	      )
+	    );
+	  }
+	}
 
-	const selectedTranscriptionModel = writable("whisper-1");
-	const selectedAnalysisModel = writable("gpt-4o");
+	/** @param {string} key @param {any} value @param {string|Array<string>} [storageType='local'] @returns {Promise<boolean>} */
+	async function set(key, value, storageType = "local") {
+	  const storageTypes = Array.isArray(storageType) ? storageType : [storageType];
 
-	const transcriptionSettings = writable({
-	  generateCleaned: true,
-	  generateSummary: true,
-	  generateReply: true,
+	  const promises = storageTypes.map((type) => {
+	    if (type === "indexedDB") return set$1(key, value);
+	    else
+	      return new Promise((resolve) => {
+	        const data = {};
+	        data[key] = value;
+	        chrome.storage[type].set(data, () => {
+	          const error = chrome.runtime.lastError;
+	          resolve(!error);
+	        });
+	      });
+	  });
+
+	  await Promise.all(promises);
+	  return true;
+	}
+
+	/** @param {string} [storageType='local'] @returns {Promise<Object>} */
+	async function getAll(storageType = "local") {
+	  if (storageType === "indexedDB") return await entries();
+	  else
+	    return new Promise((resolve) => {
+	      chrome.storage[storageType].get(null, (items) => {
+	        resolve(items || {});
+	      });
+	    });
+	}
+
+	/** @returns {Promise<Map<string, Object>>} */
+	async function getTranscriptions() {
+	  const storedData = (await get("wa-transcriptions", "indexedDB")) || {};
+	  return new Map(Object.entries(storedData));
+	}
+
+	/** @param {Object} config @returns {Object} */
+	function createBaseProvider(config = {}) {
+	  return {
+	    config,
+	    verifyApiKey: async (apiKey) => {
+	      throw new Error("Function 'verifyApiKey' must be implemented");
+	    },
+
+	    transcribeAudio: async (audioBlob, options = {}) => {
+	      throw new Error("Function 'transcribeAudio' must be implemented");
+	    },
+
+	    processTranscription: async (transcription, options = {}) => {
+	      throw new Error("Function 'processTranscription' must be implemented");
+	    },
+	  };
+	}
+
+	/** @param {string} template @param {Object} variables @returns {string} */
+	function renderTemplate(template, variables = {}) {
+	  return template.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+	    const trimmedKey = key.trim();
+	    return variables[trimmedKey] !== undefined ? variables[trimmedKey] : match;
+	  });
+	}
+
+	const defaultTemplates = {
+	  openai: {
+	    processing: `You are an AI assistant that processes WhatsApp voice message transcriptions. Process the following transcript following these exact instructions:
+
+Your response MUST follow this exact format with FOUR sections separated by '----':
+[original transcript] ---- [grammatically corrected version in {{language}}]\n[English translation] ---- [concise summary in English] ---- [natural reply in {{language}}]
+
+Instructions for each section:
+1. First section: Copy the original transcript exactly as provided.
+2. Second section: Create a grammatically correct, polished version of the transcript in {{language}}. Remove filler words, false starts, and repetitions. Maintain the original meaning. Then, on the next line, provide the English translation.
+3. Third section: Write a concise 1-2 sentence summary in English that captures the core message and key information from the transcript.
+4. Fourth section: Suggest a natural, conversational reply in {{language}} that directly addresses the main points or questions from the message. The reply should sound like something a real person would say in a WhatsApp conversation (not formal or robotic).
+
+Use ONLY '----' as separators with no additional text, headers, or explanations.
+
+TRANSCRIPT:
+{{transcription}}`,
+	  },
+	};
+
+	/** @param {string} errorText @param {string} defaultMessage @returns {Object} */
+	function parseOpenAIError(
+	  errorText,
+	  defaultMessage = "API request failed"
+	) {
+	  try {
+	    const errorData = JSON.parse(errorText);
+
+	    if (!errorData.error)
+	      return {
+	        message: defaultMessage,
+	        type: "unknown",
+	        userMessage:
+	          "There was an error processing your request. Please try again.",
+	      };
+
+	    switch (errorData.error.type) {
+	      case "insufficient_quota":
+	        return {
+	          message:
+	            "Your OpenAI API key has reached its usage limit. Please check your billing details or use a different API key.",
+	          type: "quota_exceeded",
+	          userMessage:
+	            "Your API key has reached its usage limit. Please check your OpenAI account billing details or update your API key.",
+	        };
+
+	      case "invalid_request_error":
+	        return {
+	          message: errorData.error.message || "Invalid request to the API",
+	          type: "invalid_request",
+	          userMessage:
+	            "There was a problem with the request. Please check your settings.",
+	        };
+
+	      case "authentication_error":
+	        return {
+	          message: "Authentication failed. Please check your API key.",
+	          type: "authentication",
+	          userMessage:
+	            "Your API key appears to be invalid. Please check your settings.",
+	        };
+
+	      default:
+	        return {
+	          message: errorData.error.message || defaultMessage,
+	          type: errorData.error.type || "unknown",
+	          userMessage:
+	            "There was an error processing your request. Please try again.",
+	        };
+	    }
+	  } catch (parseError) {
+	    return {
+	      message: errorText || defaultMessage,
+	      type: "unknown",
+	      userMessage:
+	        "There was an error processing your request. Please try again.",
+	    };
+	  }
+	}
+
+	/** @param {Object} config @returns {Object} */
+	function createOpenAIProvider(config = {}) {
+	  const provider = {
+	    ...createBaseProvider(config),
+	    apiKey: config.apiKey,
+	    apiUrl: "https://api.openai.com",
+	    transcriptionModel: config.transcriptionModel || "whisper-1",
+	    processingModel: config.processingModel || "gpt-4o",
+
+	    verifyApiKey: async (apiKey) => {
+	      if (!apiKey) return { valid: false, error: "API key is empty" };
+	      if (!apiKey.startsWith("sk-"))
+	        return { valid: false, error: "Invalid API key format" };
+
+	      try {
+	        const response = await fetch(`${provider.apiUrl}/v1/models`, {
+	          method: "GET",
+	          headers: {
+	            Authorization: `Bearer ${apiKey}`,
+	            "Content-Type": "application/json",
+	          },
+	        });
+
+	        if (!response.ok) {
+	          const errorText = await response.text();
+	          const errorData = parseOpenAIError(errorText, "Invalid API key");
+
+	          return {
+	            valid: false,
+	            error: errorData.message,
+	          };
+	        }
+
+	        return { valid: true };
+	      } catch (error) {
+	        return { valid: false, error: error.message || "Network error" };
+	      }
+	    },
+
+	    transcribeAudio: async (audioBlob, options = {}) => {
+	      if (!provider.apiKey) throw new Error("API key not configured");
+
+	      const formData = new FormData();
+	      formData.append("model", provider.transcriptionModel);
+	      formData.append(
+	        "file",
+	        new File([audioBlob], "audio.ogg", { type: audioBlob.type })
+	      );
+
+	      if (options.language && options.language !== "auto")
+	        formData.append("language", options.language);
+
+	      const response = await fetch(
+	        `${provider.apiUrl}/v1/audio/transcriptions`,
+	        {
+	          method: "POST",
+	          headers: {
+	            Authorization: `Bearer ${provider.apiKey}`,
+	          },
+	          body: formData,
+	        }
+	      );
+
+	      if (!response.ok) {
+	        const errorText = await response.text();
+	        const errorData = parseOpenAIError(errorText, "Transcription failed");
+	        throw new Error(errorData.message);
+	      }
+
+	      const result = await response.json();
+	      return result.text;
+	    },
+
+	    processTranscription: async (transcription, options = {}) => {
+	      if (!provider.apiKey) throw new Error("API key not configured");
+
+	      const promptTemplate =
+	        options.promptTemplate || defaultTemplates.openai.processing;
+
+	      const promptContent = renderTemplate(promptTemplate, {
+	        transcription,
+	        language: options.language || "auto",
+	      });
+
+	      const response = await fetch(`${provider.apiUrl}/v1/chat/completions`, {
+	        method: "POST",
+	        headers: {
+	          "Content-Type": "application/json",
+	          Authorization: `Bearer ${provider.apiKey}`,
+	        },
+	        body: JSON.stringify({
+	          model: provider.processingModel,
+	          messages: [
+	            {
+	              role: "user",
+	              content: promptContent,
+	            },
+	          ],
+	        }),
+	      });
+
+	      if (!response.ok) {
+	        const errorText = await response.text();
+	        const errorData = parseOpenAIError(errorText, "Processing failed");
+	        throw new Error(errorData.message);
+	      }
+
+	      const result = await response.json();
+	      const content = result.choices[0].message.content;
+	      return parseProcessedResponse(content, transcription);
+	    },
+	  };
+
+	  return provider;
+	}
+
+	/** @param {string} response @param {string} originalTranscription @returns {{transcript: string, cleaned: string, summary: string, reply: string}} */
+	function parseProcessedResponse(response, originalTranscription) {
+	  const result = {
+	    transcript: originalTranscription,
+	    cleaned: "",
+	    summary: "",
+	    reply: "",
+	  };
+
+	  try {
+	    const sections = response.split("----").map((s) => s.trim());
+
+	    if (sections.length < 4) {
+	      console.warn("Unexpected response format:", response); // TODO: Remove
+	      result.cleaned = response.trim();
+	      result.summary = "Error: AI response was not in the expected format";
+	      result.reply = "Please try transcribing again";
+	      return result;
+	    }
+
+	    result.cleaned = sections[1] || "";
+	    result.summary = sections[2] || "";
+	    result.reply = sections[3] || "";
+
+	    if (!result.cleaned || !result.summary || !result.reply) {
+	      console.warn("Missing sections in response:", sections); // TODO: Remove
+	      result.summary =
+	        result.summary ||
+	        "Error: Some sections were missing from the AI response";
+	      result.reply = result.reply || "Please try transcribing again";
+	    }
+	  } catch (error) {
+	    console.error("Parsing error:", error.message); // TODO: Remove
+	    result.cleaned = response.trim();
+	    result.summary = "Error: Could not process AI response";
+	    result.reply = "Please try transcribing again";
+	  }
+
+	  return result;
+	}
+
+	const PROVIDERS = {
+	  openai: createOpenAIProvider,
+	  // Future providers can be added here:
+	  // claude: createClaudeProvider,
+	};
+
+	/** @returns {Array<string>} */
+	function getSupportedProviders() {
+	  return Object.keys(PROVIDERS);
+	}
+
+	/** @returns {string} */
+	function getDefaultProviderType() {
+	  return "openai";
+	}
+
+	const DEFAULT_SETTINGS = {
+	  providerType: getDefaultProviderType(),
+	  apiKey: "",
+	  transcriptionModel: "whisper-1",
+	  processingModel: "gpt-4o",
 	  language: "auto",
-	  promptTemplate: `Based on the voice message transcript, generate four outputs:
-TRANSCRIPT: The exact transcript
-CLEANED: A grammatically corrected, filler-word-free version
-SUMMARY: A concise summary in 1-2 sentences
-REPLY: A natural, helpful suggested reply to this message`,
-	});
+	  promptTemplate: "",
+	  isExtensionEnabled: true,
+	};
+
+	writable(
+	  getSupportedProviders().map((id) => ({
+	    id,
+	    name: id.charAt(0).toUpperCase() + id.slice(1),
+	  }))
+	);
+
+	const settings = writable({});
+	const transcriptionCache = writable(new Map());
 
 	const extensionStatus = writable({
 	  isApiKeyConfigured: false,
@@ -3824,58 +3927,98 @@ REPLY: A natural, helpful suggested reply to this message`,
 	    return { text: "Extension disabled", type: "warning" };
 	  if ($status.lastError)
 	    return { text: "Error: " + $status.lastError, type: "error" };
-
 	  if ($status.pendingTranscriptions > 0)
 	    return { text: "Transcribing...", type: "pending" };
 
 	  return { text: "Ready", type: "success" };
 	});
 
-	function initializeStores() {
-	  return new Promise((resolve) => {
-	    chrome.storage.local.get(["openai_api_key"], (localResult) => {
-	      if (localResult.openai_api_key) {
-	        apiKey.set(localResult.openai_api_key);
-	        extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: true }));
-	      }
+	/** @param {Object} updates */
+	function updateStatus(updates) {
+	  extensionStatus.update((status) => {
+	    const newStatus = { ...status };
 
-	      chrome.storage.sync.get(
-	        [
-	          "openai_api_key",
-	          "selectedTranscriptionModel",
-	          "selectedAnalysisModel",
-	          "transcriptionSettings",
-	          "isExtensionEnabled",
-	        ],
-	        (result) => {
-	          if (!localResult.openai_api_key && result.openai_api_key) {
-	            apiKey.set(result.openai_api_key);
-	            extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: true }));
+	    if (updates.pendingTranscriptions !== undefined) {
+	      if (typeof updates.pendingTranscriptions === "boolean") {
+	        newStatus.pendingTranscriptions += updates.pendingTranscriptions
+	          ? 1
+	          : -1;
+	        if (newStatus.pendingTranscriptions < 0)
+	          newStatus.pendingTranscriptions = 0;
+	      } else newStatus.pendingTranscriptions = updates.pendingTranscriptions;
+	    }
 
-	            chrome.storage.local.set({ openai_api_key: result.openai_api_key });
-	          }
+	    if (updates.lastError !== undefined)
+	      newStatus.lastError = updates.lastError;
+	    if (updates.isExtensionEnabled !== undefined)
+	      newStatus.isExtensionEnabled = updates.isExtensionEnabled;
+	    if (updates.isApiKeyConfigured !== undefined)
+	      newStatus.isApiKeyConfigured = updates.isApiKeyConfigured;
 
-	          if (result.selectedTranscriptionModel)
-	            selectedTranscriptionModel.set(result.selectedTranscriptionModel);
+	    return newStatus;
+	  });
+	}
 
-	          if (result.selectedAnalysisModel)
-	            selectedAnalysisModel.set(result.selectedAnalysisModel);
+	async function initializeSettings() {
+	  const transcriptions = await getTranscriptions();
+	  transcriptionCache.set(transcriptions);
 
-	          if (result.transcriptionSettings)
-	            transcriptionSettings.set(result.transcriptionSettings);
+	  const apiKey =
+	    (await get("apiKey", "local")) ||
+	    (await get("apiKey", "sync"));
 
-	          if (result.isExtensionEnabled !== undefined) {
-	            extensionStatus.update((s) => ({
-	              ...s,
-	              isExtensionEnabled: result.isExtensionEnabled,
-	            }));
-	          }
+	  const storedSettings = await getAll("sync");
 
-	          get(apiKey);
-	          resolve();
-	        }
+	  settings.set({
+	    ...DEFAULT_SETTINGS,
+	    ...storedSettings,
+	    apiKey: apiKey || "",
+	  });
+
+	  updateStatus({
+	    isApiKeyConfigured: !!apiKey,
+	    isExtensionEnabled: storedSettings.isExtensionEnabled !== false,
+	  });
+
+	  setupSettingsPersistence();
+	}
+
+	function setupSettingsPersistence() {
+	  let previousSettings = {};
+
+	  settings.subscribe(async (currentSettings) => {
+	    if (Object.keys(currentSettings).length === 0) return;
+
+	    const hasChanged = Object.entries(currentSettings).some(
+	      ([key, value]) => previousSettings[key] !== value
+	    );
+
+	    if (!hasChanged && Object.keys(previousSettings).length > 0) return;
+	    previousSettings = { ...currentSettings };
+
+	    if (currentSettings.apiKey) {
+	      await set("apiKey", currentSettings.apiKey, [
+	        "local",
+	        "sync",
+	      ]);
+	      updateStatus({ isApiKeyConfigured: true });
+	    }
+
+	    for (const [key, value] of Object.entries(currentSettings))
+	      if (key !== "apiKey") await set(key, value, "sync");
+
+	    chrome.runtime.sendMessage({ action: "settingsUpdated" });
+	  });
+
+	  transcriptionCache.subscribe(async (cache) => {
+	    if (cache.size > 0) {
+	      const transcriptionObj = Object.fromEntries(cache);
+	      await set(
+	        "wa-transcriptions",
+	        transcriptionObj,
+	        "indexedDB"
 	      );
-	    });
+	    }
 	  });
 	}
 
@@ -3883,105 +4026,190 @@ REPLY: A natural, helpful suggested reply to this message`,
 		chrome.runtime.openOptionsPage();
 	}
 
-	function toggleExtension(_, isEnabled) {
-		set(isEnabled, !get$1(isEnabled));
-
-		extensionStatus.update((s) => ({
-			...s,
-			isExtensionEnabled: get$1(isEnabled)
-		}));
-
-		chrome.runtime.sendMessage({ action: "settingsUpdated" });
-	}
-
-	var root = template(`<div class="w-80 font-sans p-4 text-gray-800"><header class="mb-4 pb-3 border-b border-gray-200"><h1 class="text-lg font-semibold text-[#00a884] m-0">WhatsApp AI Transcriber Plus</h1></header> <div class="bg-gray-100 rounded-lg p-3 mb-4"><div class="flex justify-between items-center mb-2"><span class="font-medium text-sm">Status:</span> <span><span></span> </span></div> <div class="flex justify-between items-center"><span class="font-medium text-sm">Extension:</span> <button type="button" role="switch"><span class="sr-only">Enable extension</span> <span></span></button></div></div> <div class="mb-4"><button class="w-full bg-[#00a884] text-white border-0 rounded-lg py-2.5 px-4 text-sm font-medium cursor-pointer transition-colors hover:bg-[#008f72]">Open Settings</button></div> <div class="text-xs leading-relaxed text-gray-600"><p class="my-2">This extension transcribes WhatsApp voice messages using AI and provides:</p> <ul class="my-2 pl-5"><li class="mb-1">Raw transcription</li> <li class="mb-1">Cleaned version</li> <li class="mb-1">Brief summary</li> <li class="mb-1">Suggested reply</li></ul> <p class="my-2"><!></p></div></div>`);
+	var root_1 = template(`<div><p>Your OpenAI API key has reached its usage limit. You need to:</p> <ul><li>Check your OpenAI account billing</li> <li>Update payment method or add credits</li> <li>Or use a different API key</li></ul></div>`);
+	var root = template(`<main><header><h1>WhatsApp AI Transcriber</h1></header> <section><div><span>Status:</span> <span dir="auto"><span aria-hidden="true"></span> </span></div> <!> <div><span>Extension:</span> <button type="button" role="switch"><span class="sr-only">Enable extension</span> <span aria-hidden="true"></span></button></div></section> <section><button type="button">Open Settings</button></section> <footer><p dir="auto">This extension transcribes WhatsApp voice messages using AI and provides:</p> <ul><li dir="auto">Raw transcription</li> <li dir="auto">Cleaned version</li> <li dir="auto">Brief summary</li> <li dir="auto">Suggested reply</li></ul> <p dir="auto">Click the "Transcribe" button next to voice messages to process them.</p></footer></main>`);
 
 	function Popup($$anchor, $$props) {
-		push($$props, false);
+		push($$props, true);
 
 		const [$$stores, $$cleanup] = setup_stores();
 		const $extensionStatusText = () => store_get(extensionStatusText, '$extensionStatusText', $$stores);
-		const $apiKey = () => store_get(apiKey, '$apiKey', $$stores);
-		let isEnabled = mutable_source(true);
+		const $extensionStatus = () => store_get(extensionStatus, '$extensionStatus', $$stores);
+		let isEnabled = state(true);
 
-		(() => {
-			initializeStores();
+		(async () => {
+			await initializeSettings();
+
+			extensionStatus.subscribe((status) => {
+				set$2(isEnabled, status.isExtensionEnabled, true);
+			});
 		})();
 
-		init();
+		function toggleExtension() {
+			const newStatus = !get$3(isEnabled);
 
-		var div = root();
-		var div_1 = sibling(child(div), 2);
-		var div_2 = child(div_1);
-		var span = sibling(child(div_2), 2);
-		var span_1 = child(span);
-		var text$1 = sibling(span_1);
+			if (newStatus !== get$3(isEnabled)) {
+				set$2(isEnabled, newStatus);
 
-		text$1.nodeValue = ' ';
+				extensionStatus.update((s) => ({
+					...s,
+					isExtensionEnabled: get$3(isEnabled)
+				}));
 
-		var div_3 = sibling(div_2, 2);
-		var button = sibling(child(div_3), 2);
+				chrome.runtime.sendMessage({ action: "settingsUpdated" });
+			}
+		}
 
-		button.__click = [toggleExtension, isEnabled];
+		var main = root();
 
-		var span_2 = sibling(child(button), 2);
+		set_class(main, 1, clsx(["w-80 font-sans p-4 text-gray-800"]));
 
-		var div_4 = sibling(div_1, 2);
-		var button_1 = child(div_4);
+		var header = child(main);
 
-		button_1.__click = [openOptions];
+		set_class(header, 1, clsx(["mb-4 pb-3 border-b border-gray-200"]));
 
-		var div_5 = sibling(div_4, 2);
-		var p = sibling(child(div_5), 4);
-		var node = child(p);
+		var h1 = child(header);
+
+		set_class(h1, 1, clsx(["text-lg font-semibold text-[#00a884] m-0"]));
+
+		var section = sibling(header, 2);
+
+		set_class(section, 1, clsx(["bg-gray-100 rounded-lg p-3 mb-4"]));
+
+		var div = child(section);
+
+		set_class(div, 1, clsx(["flex justify-between items-center mb-2"]));
+
+		var span = child(div);
+
+		set_class(span, 1, clsx(["font-medium text-sm"]));
+
+		var span_1 = sibling(span, 2);
+		var span_2 = child(span_1);
+		var text = sibling(span_2);
+
+		var node = sibling(div, 2);
 
 		{
 			var consequent = ($$anchor) => {
-				var text_1 = text('Configure your API key in the settings to get started.');
+				var div_1 = root_1();
 
-				append($$anchor, text_1);
-			};
+				set_class(div_1, 1, clsx([
+					"bg-yellow-50 border border-yellow-200 rounded-md p-2 mb-3 text-xs text-yellow-800"
+				]));
 
-			var alternate = ($$anchor) => {
-				var text_2 = text('Click the "Transcribe" button next to voice messages to analyze them.');
+				var p = child(div_1);
 
-				append($$anchor, text_2);
+				set_class(p, 1, clsx(["m-0"]));
+
+				var ul = sibling(p, 2);
+
+				set_class(ul, 1, clsx(["pl-4 mt-1.5 mb-0"]));
+				append($$anchor, div_1);
 			};
 
 			if_block(node, ($$render) => {
-				if (!$apiKey()) $$render(consequent); else $$render(alternate, false);
+				if ($extensionStatus().lastError && $extensionStatus().lastError.includes("API key has reached its usage limit")) $$render(consequent);
 			});
 		}
 
+		var div_2 = sibling(node, 2);
+
+		set_class(div_2, 1, clsx(["flex justify-between items-center"]));
+
+		var span_3 = child(div_2);
+
+		set_class(span_3, 1, clsx(["font-medium text-sm"]));
+
+		var button = sibling(span_3, 2);
+
+		button.__click = toggleExtension;
+
+		var span_4 = sibling(child(button), 2);
+
+		var section_1 = sibling(section, 2);
+
+		set_class(section_1, 1, clsx(["mb-4"]));
+
+		var button_1 = child(section_1);
+
+		set_class(button_1, 1, clsx([
+			"w-full bg-[#00a884] text-white border-0 rounded-lg py-2.5 px-4 text-sm font-medium cursor-pointer transition-colors hover:bg-[#008f72]"
+		]));
+
+		button_1.__click = [openOptions];
+
+		var footer = sibling(section_1, 2);
+
+		set_class(footer, 1, clsx(["text-xs leading-relaxed text-gray-600"]));
+
+		var p_1 = child(footer);
+
+		set_class(p_1, 1, clsx(["my-2"]));
+
+		var ul_1 = sibling(p_1, 2);
+
+		set_class(ul_1, 1, clsx(["my-2 pl-5"]));
+
+		var li = child(ul_1);
+
+		set_class(li, 1, clsx(["mb-1"]));
+
+		var li_1 = sibling(li, 2);
+
+		set_class(li_1, 1, clsx(["mb-1"]));
+
+		var li_2 = sibling(li_1, 2);
+
+		set_class(li_2, 1, clsx(["mb-1"]));
+
+		var li_3 = sibling(li_2, 2);
+
+		set_class(li_3, 1, clsx(["mb-1"]));
+
+		var p_2 = sibling(ul_1, 2);
+
+		set_class(p_2, 1, clsx(["my-2"]));
+
 		template_effect(() => {
-			set_class(span, 1, clsx([
+			set_class(span_1, 1, clsx([
 				"flex items-center text-sm",
 				$extensionStatusText().type === "error" && "text-red-500",
 				$extensionStatusText().type === "warning" && "text-yellow-600",
 				$extensionStatusText().type === "success" && "text-green-600"
 			]));
 
-			set_class(span_1, 1, clsx([
+			set_class(span_2, 1, clsx([
 				"inline-block w-2.5 h-2.5 rounded-full mr-1.5",
 				$extensionStatusText().type === "error" && "bg-red-500",
 				$extensionStatusText().type === "warning" && "bg-yellow-600",
 				$extensionStatusText().type === "success" && "bg-green-600"
 			]));
 
+			set_text(text, ` ${$extensionStatusText().text ?? ''}`);
+			span_1.dir = span_1.dir;
+
 			set_class(button, 1, clsx([
 				"relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200",
-				get$1(isEnabled) ? "bg-[#00a884]" : "bg-gray-300"
+				get$3(isEnabled) ? "bg-[#00a884]" : "bg-gray-300"
 			]));
 
-			set_attribute(button, 'aria-checked', get$1(isEnabled));
+			set_attribute(button, 'aria-checked', get$3(isEnabled));
 
-			set_class(span_2, 1, clsx([
-				"inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out",
-				get$1(isEnabled) ? "translate-x-6" : "translate-x-1"
+			set_class(span_4, 1, clsx([
+				"inline-block h-6 w-6 transform rounded-full bg-white transition-transform duration-200 ease-in-out",
+				get$3(isEnabled) ? "-translate-x-[8px]" : "translate-x-[13px]"
 			]));
+
+			p_1.dir = p_1.dir;
+			li.dir = li.dir;
+			li_1.dir = li_1.dir;
+			li_2.dir = li_2.dir;
+			li_3.dir = li_3.dir;
+			p_2.dir = p_2.dir;
 		});
 
-		append($$anchor, div);
+		append($$anchor, main);
 		pop();
 		$$cleanup();
 	}

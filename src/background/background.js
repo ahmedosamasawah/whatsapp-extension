@@ -1,144 +1,124 @@
+import { getProvider } from "../api/index.js";
+import * as storageService from "../services/storageService.js";
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+const notifyWhatsappTabs = debounce(async () => {
+  try {
+    const tabs = await chrome.tabs.query({
+      url: "https://web.whatsapp.com/*",
+    });
+
+    if (tabs && tabs.length > 0) {
+      const messagePromises = tabs.map(
+        (tab) =>
+          new Promise((resolve) => {
+            chrome.tabs.sendMessage(
+              tab.id,
+              { action: "settingsUpdated" },
+              () => {
+                const lastError = chrome.runtime.lastError;
+                if (lastError)
+                  console.log(
+                    `Error sending message to tab ${tab.id}: ${lastError.message}`
+                  ); // TODO: Remove
+
+                resolve();
+              }
+            );
+          })
+      );
+
+      await Promise.all(messagePromises);
+    }
+  } catch (error) {
+    console.error("Error notifying WhatsApp tabs:", error); // TODO: Remove
+  }
+}, 500);
+
+/** @type {Object.<string, Function>} */
+const messageHandlers = {
+  /** @returns {Promise<{success: boolean}>} */
+  async openOptionsPage() {
+    chrome.runtime.openOptionsPage();
+    return { success: true };
+  },
+
+  /** @param {Object} message @returns {Promise<{valid: boolean, error?: string}>} */
+  async verifyApiKey(message) {
+    try {
+      const provider = getProvider(message.providerType || "openai");
+      const result = await provider.verifyApiKey(message.apiKey);
+
+      if (result.valid)
+        await storageService.set("apiKey", message.apiKey, ["local", "sync"]);
+
+      return result;
+    } catch (error) {
+      return { valid: false, error: error.message };
+    }
+  },
+
+  /** @returns {Promise<{syncStorage: Object, localStorage: Object}>} */
+  async checkStorage() {
+    const syncStorage = await storageService.getAll("sync");
+    const localStorage = await storageService.getAll("local");
+
+    return { syncStorage, localStorage };
+  },
+
+  /** @returns {Promise<{apiKey: string|null}>} */
+  async getApiKey() {
+    const apiKey =
+      (await storageService.get("apiKey", "local")) ||
+      (await storageService.get("apiKey", "sync"));
+
+    return { apiKey: apiKey || null };
+  },
+
+  /** @returns {Promise<{success: boolean, warning?: string}>} */
+  async settingsUpdated() {
+    try {
+      notifyWhatsappTabs();
+      return { success: true };
+    } catch (error) {
+      console.error("Error in settingsUpdated:", error); // TODO: Remove
+      return { success: true, warning: "Error notifying tabs" };
+    }
+  },
+};
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || !message.action) return false;
+
+  const handler = messageHandlers[message.action];
+  if (!handler) return false;
+
+  handler(message, sender)
+    .then(sendResponse)
+    .catch((error) => {
+      console.error(`Error handling ${message.action}:`, error); // TODO: Remove
+      sendResponse({ error: error.message });
+    });
+
+  return true;
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") chrome.runtime.openOptionsPage();
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "openOptionsPage") {
-    chrome.runtime.openOptionsPage();
-    sendResponse({ success: true });
-    return false;
-  }
-
-  if (message.action === "verifyApiKey") {
-    verifyApiKey(message.apiKey)
-      .then((result) => {
-        if (result.valid) {
-          chrome.storage.sync.set({ openai_api_key: message.apiKey }, () => {
-            chrome.storage.local.set({ openai_api_key: message.apiKey }, () => {
-              sendResponse(result);
-            });
-          });
-        } else {
-          sendResponse(result);
-        }
-      })
-      .catch((error) => sendResponse({ valid: false, error: error.message }));
-    return true;
-  }
-
-  if (message.action === "checkStorage") {
-    chrome.storage.sync.get(null, function (syncItems) {
-      chrome.storage.local.get(null, function (localItems) {
-        try {
-          sendResponse({
-            syncStorage: syncItems,
-            localStorage: localItems,
-          });
-        } catch (error) {
-          console.error("Error sending response:", error);
-        }
-      });
-    });
-    return true;
-  }
-
-  if (message.action === "getApiKey") {
-    chrome.storage.local.get(["openai_api_key"], function (localItems) {
-      if (localItems.openai_api_key) {
-        try {
-          sendResponse({ apiKey: localItems.openai_api_key });
-        } catch (error) {
-          console.error("Error sending response:", error);
-        }
-      } else {
-        chrome.storage.sync.get(["openai_api_key"], function (syncItems) {
-          try {
-            if (syncItems.openai_api_key) {
-              chrome.storage.local.set({
-                openai_api_key: syncItems.openai_api_key,
-              });
-              sendResponse({ apiKey: syncItems.openai_api_key });
-            } else {
-              sendResponse({ apiKey: null });
-            }
-          } catch (error) {
-            console.error("Error sending response:", error);
-          }
-        });
-      }
-    });
-    return true;
-  }
-
-  if (message.action === "settingsUpdated") {
-    try {
-      chrome.tabs.query({ url: "https://web.whatsapp.com/*" }, (tabs) => {
-        try {
-          if (tabs && tabs.length > 0) {
-            tabs.forEach((tab) => {
-              try {
-                chrome.tabs.sendMessage(
-                  tab.id,
-                  { action: "settingsUpdated" },
-                  () => {
-                    const lastError = chrome.runtime.lastError;
-                    if (lastError) {
-                      console.log(
-                        `Error sending message to tab ${tab.id}: ${lastError.message}`
-                      );
-                    }
-                  }
-                );
-              } catch (tabError) {
-                console.log(`Error in tab message: ${tabError.message}`);
-              }
-            });
-          }
-
-          sendResponse({ success: true });
-        } catch (innerError) {
-          console.error("Error processing tabs:", innerError);
-          sendResponse({ success: true, warning: "Error notifying tabs" });
-        }
-      });
-    } catch (outerError) {
-      console.error("Error in tabs.query:", outerError);
-      sendResponse({ success: true, warning: "Error querying tabs" });
-    }
-    return true;
-  }
-
-  return false;
-});
-
-/** @param {string} apiKey */
-async function verifyApiKey(apiKey) {
-  if (!apiKey) return { valid: false, error: "API key is empty" };
-
-  if (!apiKey.startsWith("sk-"))
-    return { valid: false, error: "Invalid API key format" };
-
-  try {
-    const response = await fetch("https://api.openai.com/v1/models", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      return { valid: false, error: error.error.message || "Invalid API key" };
-    }
-
-    return { valid: true };
-  } catch (error) {
-    return { valid: false, error: error.message || "Network error" };
-  }
-}
-
-chrome.storage.sync.get(["openai_api_key"], function (result) {
-  if (result.openai_api_key)
-    chrome.storage.local.set({ openai_api_key: result.openai_api_key });
-});
+(async () => {
+  const apiKey = await storageService.get("apiKey", "sync");
+  if (apiKey) await storageService.set("apiKey", apiKey, "local");
+})();

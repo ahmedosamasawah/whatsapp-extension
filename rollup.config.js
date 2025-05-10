@@ -10,8 +10,8 @@ import resolve from "@rollup/plugin-node-resolve";
 
 const entryPoints = [
   { name: "content", path: "src/content/content.js", dir: "content" },
-  { name: "popup", path: "src/popup/popup.js", dir: "popup" },
-  { name: "options", path: "src/options/options.js", dir: "options" },
+  { name: "popup", path: "src/pages/popup/popup.js", dir: "popup" },
+  { name: "options", path: "src/pages/options/options.js", dir: "options" },
   {
     name: "background",
     path: "src/background/background.js",
@@ -84,6 +84,7 @@ export default entryPoints.map((entry) => {
         targets: [
           { src: "public/manifest.json", dest: "dist" },
           { src: "public/assets", dest: "dist" },
+          { src: "public/fonts", dest: "dist" },
         ],
       }),
 

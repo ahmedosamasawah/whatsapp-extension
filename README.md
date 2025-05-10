@@ -11,6 +11,7 @@ A browser extension that adds voice message transcription functionality to Whats
 - Uses OpenAI's Whisper API for accurate transcriptions
 - Caches transcriptions for repeated access
 - Modern UI built with Svelte and Tailwind CSS
+- Supports multilingual transcriptions with Kitab font for Arabic and other right-to-left languages
 
 ## Development
 
@@ -79,7 +80,7 @@ whatsapp-transcriber-plus/
 2. Configure your OpenAI API key in the extension settings
 3. Open WhatsApp Web
 4. When you see a voice message, a "Transcribe" button will appear
-5. Click the button to transcribe and analyze the voice message
+5. Click the button to transcribe and process the voice message
 
 ## API Key
 

@@ -34,6 +34,7 @@
     {
       "resources": [
         "assets/*",
+        "fonts/*",
         "content/*.css",
         "popup/*.css",
         "options/*.css"

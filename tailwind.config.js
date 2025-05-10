@@ -2,7 +2,20 @@
 export default {
   content: ["./src/**/*.{html,js,svelte,ts}"],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        kitab: [
+          "Kitab",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica",
+          "Arial",
+          "sans-serif",
+        ],
+      },
+    },
   },
   corePlugins: {
     preflight: false,

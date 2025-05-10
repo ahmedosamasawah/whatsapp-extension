@@ -1,8 +1,8 @@
-import "../app.css";
+import "../../app.css";
 import { mount } from "svelte";
-import Popup from "./Popup.svelte";
+import Options from "../../components/Options.svelte";
 
-const app = mount(Popup, {
+const app = mount(Options, {
   target: document.getElementById("whatsapp-transcriber-app"),
 });
 

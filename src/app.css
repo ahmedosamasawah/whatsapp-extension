@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: Kitab;
+  src: url(chrome-extension://__MSG_@@extension_id__/fonts/kitab-base.woff2);
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+
+@font-face {
+  font-family: Kitab;
+  src: url(chrome-extension://__MSG_@@extension_id__/fonts/kitab-base-bold.woff2);
+  font-weight: 700;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+
+@font-face {
+  font-family: Kitab;
+  src: url(chrome-extension://__MSG_@@extension_id__/fonts/kitab-phrases.woff2);
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+
+@font-face {
+  font-family: Kitab;
+  src: url(chrome-extension://__MSG_@@extension_id__/fonts/kitab-phrases.woff2);
+  font-weight: 700;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+
 #whatsapp-transcriber-app {
   all: revert;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,

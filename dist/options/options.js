@@ -19,11 +19,6 @@ var options = (function () {
 
 	const noop = () => {};
 
-	/** @param {Function} fn */
-	function run(fn) {
-		return fn();
-	}
-
 	/** @param {Array<() => void>} arr */
 	function run_all(arr) {
 		for (var i = 0; i < arr.length; i++) {
@@ -48,8 +43,6 @@ var options = (function () {
 	const EFFECT_RAN = 1 << 15;
 	/** 'Transparent' effects do not create a transition boundary */
 	const EFFECT_TRANSPARENT = 1 << 16;
-	/** Svelte 4 legacy mode props need to be handled with deriveds and be recognized elsewhere, hence the dedicated flag */
-	const LEGACY_DERIVED_PROP = 1 << 17;
 	const INSPECT_EFFECT = 1 << 18;
 	const HEAD_EFFECT = 1 << 19;
 	const EFFECT_HAS_DERIVED = 1 << 20;
@@ -111,53 +104,6 @@ var options = (function () {
 			throw error;
 		} else {
 			throw new Error(`https://svelte.dev/e/derived_references_self`);
-		}
-	}
-
-	/**
-	 * `%rune%` cannot be used inside an effect cleanup function
-	 * @param {string} rune
-	 * @returns {never}
-	 */
-	function effect_in_teardown(rune) {
-		if (DEV) {
-			const error = new Error(`effect_in_teardown\n\`${rune}\` cannot be used inside an effect cleanup function\nhttps://svelte.dev/e/effect_in_teardown`);
-
-			error.name = 'Svelte error';
-			throw error;
-		} else {
-			throw new Error(`https://svelte.dev/e/effect_in_teardown`);
-		}
-	}
-
-	/**
-	 * Effect cannot be created inside a `$derived` value that was not itself created inside an effect
-	 * @returns {never}
-	 */
-	function effect_in_unowned_derived() {
-		if (DEV) {
-			const error = new Error(`effect_in_unowned_derived\nEffect cannot be created inside a \`$derived\` value that was not itself created inside an effect\nhttps://svelte.dev/e/effect_in_unowned_derived`);
-
-			error.name = 'Svelte error';
-			throw error;
-		} else {
-			throw new Error(`https://svelte.dev/e/effect_in_unowned_derived`);
-		}
-	}
-
-	/**
-	 * `%rune%` can only be used inside an effect (e.g. during component initialisation)
-	 * @param {string} rune
-	 * @returns {never}
-	 */
-	function effect_orphan(rune) {
-		if (DEV) {
-			const error = new Error(`effect_orphan\n\`${rune}\` can only be used inside an effect (e.g. during component initialisation)\nhttps://svelte.dev/e/effect_orphan`);
-
-			error.name = 'Svelte error';
-			throw error;
-		} else {
-			throw new Error(`https://svelte.dev/e/effect_orphan`);
 		}
 	}
 
@@ -239,10 +185,6 @@ var options = (function () {
 
 	let legacy_mode_flag = false;
 	let tracing_mode_flag = false;
-
-	function enable_legacy_mode_flag() {
-		legacy_mode_flag = true;
-	}
 
 	const EACH_ITEM_REACTIVE = 1;
 	const EACH_INDEX_REACTIVE = 1 << 1;
@@ -354,15 +296,6 @@ var options = (function () {
 			l: null
 		});
 
-		if (legacy_mode_flag && !runes) {
-			component_context.l = {
-				s: null,
-				u: null,
-				r1: [],
-				r2: source(false)
-			};
-		}
-
 		teardown(() => {
 			/** @type {ComponentContext} */ (ctx).d = true;
 		});
@@ -415,7 +348,7 @@ var options = (function () {
 
 	/** @returns {boolean} */
 	function is_runes() {
-		return !legacy_mode_flag || (component_context !== null && component_context.l === null);
+		return !legacy_mode_flag ;
 	}
 
 	/** @import { Source } from '#client' */
@@ -487,7 +420,7 @@ var options = (function () {
 					s = with_parent(() => state(descriptor.value, stack));
 					sources.set(prop, s);
 				} else {
-					set(
+					set$2(
 						s,
 						with_parent(() => proxy(descriptor.value))
 					);
@@ -515,10 +448,10 @@ var options = (function () {
 						var n = Number(prop);
 
 						if (Number.isInteger(n) && n < ls.v) {
-							set(ls, n);
+							set$2(ls, n);
 						}
 					}
-					set(s, UNINITIALIZED);
+					set$2(s, UNINITIALIZED);
 					update_version(version);
 				}
 
@@ -540,7 +473,7 @@ var options = (function () {
 				}
 
 				if (s !== undefined) {
-					var v = get$1(s);
+					var v = get$3(s);
 					return v === UNINITIALIZED ? undefined : v;
 				}
 
@@ -552,7 +485,7 @@ var options = (function () {
 
 				if (descriptor && 'value' in descriptor) {
 					var s = sources.get(prop);
-					if (s) descriptor.value = get$1(s);
+					if (s) descriptor.value = get$3(s);
 				} else if (descriptor === undefined) {
 					var source = sources.get(prop);
 					var value = source?.v;
@@ -587,7 +520,7 @@ var options = (function () {
 						sources.set(prop, s);
 					}
 
-					var value = get$1(s);
+					var value = get$3(s);
 					if (value === UNINITIALIZED) {
 						return false;
 					}
@@ -605,7 +538,7 @@ var options = (function () {
 					for (var i = value; i < /** @type {Source<number>} */ (s).v; i += 1) {
 						var other_s = sources.get(i + '');
 						if (other_s !== undefined) {
-							set(other_s, UNINITIALIZED);
+							set$2(other_s, UNINITIALIZED);
 						} else if (i in target) {
 							// If the item exists in the original, we need to create a uninitialized source,
 							// else a later read of the property would result in a source being created with
@@ -623,7 +556,7 @@ var options = (function () {
 				if (s === undefined) {
 					if (!has || get_descriptor(target, prop)?.writable) {
 						s = with_parent(() => state(undefined, stack));
-						set(
+						set$2(
 							s,
 							with_parent(() => proxy(value))
 						);
@@ -631,7 +564,7 @@ var options = (function () {
 					}
 				} else {
 					has = s.v !== UNINITIALIZED;
-					set(
+					set$2(
 						s,
 						with_parent(() => proxy(value))
 					);
@@ -654,7 +587,7 @@ var options = (function () {
 						var n = Number(prop);
 
 						if (Number.isInteger(n) && n >= ls.v) {
-							set(ls, n + 1);
+							set$2(ls, n + 1);
 						}
 					}
 
@@ -665,7 +598,7 @@ var options = (function () {
 			},
 
 			ownKeys(target) {
-				get$1(version);
+				get$3(version);
 
 				var own_keys = Reflect.ownKeys(target).filter((key) => {
 					var source = sources.get(key);
@@ -692,7 +625,7 @@ var options = (function () {
 	 * @param {1 | -1} [d]
 	 */
 	function update_version(signal, d = 1) {
-		set(signal, signal.v + d);
+		set$2(signal, signal.v + d);
 	}
 
 	/**
@@ -941,12 +874,6 @@ var options = (function () {
 			s.equals = safe_equals;
 		}
 
-		// bind the signal to the component context, in case we need to
-		// track updates to trigger beforeUpdate/afterUpdate callbacks
-		if (legacy_mode_flag && component_context !== null && component_context.l !== null) {
-			(component_context.l.s ??= []).push(s);
-		}
-
 		return s;
 	}
 
@@ -957,7 +884,7 @@ var options = (function () {
 	 * @param {boolean} [should_proxy]
 	 * @returns {V}
 	 */
-	function set(source, value, should_proxy = false) {
+	function set$2(source, value, should_proxy = false) {
 		if (
 			active_reaction !== null &&
 			!untracking &&
@@ -1016,7 +943,6 @@ var options = (function () {
 			// properly for itself, we need to ensure the current effect actually gets
 			// scheduled. i.e: `$effect(() => x++)`
 			if (
-				is_runes() &&
 				active_effect !== null &&
 				(active_effect.f & CLEAN) !== 0 &&
 				(active_effect.f & (BRANCH_EFFECT | ROOT_EFFECT)) === 0
@@ -1057,8 +983,6 @@ var options = (function () {
 	function mark_reactions(signal, status) {
 		var reactions = signal.reactions;
 		if (reactions === null) return;
-
-		var runes = is_runes();
 		var length = reactions.length;
 
 		for (var i = 0; i < length; i++) {
@@ -1067,9 +991,6 @@ var options = (function () {
 
 			// Skip any effects that are already dirty
 			if ((flags & DIRTY) !== 0) continue;
-
-			// In legacy mode, skip the current effect to prevent infinite loops
-			if (!runes && reaction === active_effect) continue;
 
 			// Inspect effects need to run immediately, so that the stack trace makes sense
 			if (DEV && (flags & INSPECT_EFFECT) !== 0) {
@@ -1318,23 +1239,6 @@ var options = (function () {
 	/** @import { ComponentContext, ComponentContextLegacy, Derived, Effect, TemplateNode, TransitionManager } from '#client' */
 
 	/**
-	 * @param {'$effect' | '$effect.pre' | '$inspect'} rune
-	 */
-	function validate_effect(rune) {
-		if (active_effect === null && active_reaction === null) {
-			effect_orphan(rune);
-		}
-
-		if (active_reaction !== null && (active_reaction.f & UNOWNED) !== 0 && active_effect === null) {
-			effect_in_unowned_derived();
-		}
-
-		if (is_destroying_effect) {
-			effect_in_teardown(rune);
-		}
-	}
-
-	/**
 	 * @param {Effect} effect
 	 * @param {Effect} parent_effect
 	 */
@@ -1436,55 +1340,6 @@ var options = (function () {
 	}
 
 	/**
-	 * Internal representation of `$effect(...)`
-	 * @param {() => void | (() => void)} fn
-	 */
-	function user_effect(fn) {
-		validate_effect('$effect');
-
-		// Non-nested `$effect(...)` in a component should be deferred
-		// until the component is mounted
-		var defer =
-			active_effect !== null &&
-			(active_effect.f & BRANCH_EFFECT) !== 0 &&
-			component_context !== null &&
-			!component_context.m;
-
-		if (DEV) {
-			define_property(fn, 'name', {
-				value: '$effect'
-			});
-		}
-
-		if (defer) {
-			var context = /** @type {ComponentContext} */ (component_context);
-			(context.e ??= []).push({
-				fn,
-				effect: active_effect,
-				reaction: active_reaction
-			});
-		} else {
-			var signal = effect(fn);
-			return signal;
-		}
-	}
-
-	/**
-	 * Internal representation of `$effect.pre(...)`
-	 * @param {() => void | (() => void)} fn
-	 * @returns {Effect}
-	 */
-	function user_pre_effect(fn) {
-		validate_effect('$effect.pre');
-		if (DEV) {
-			define_property(fn, 'name', {
-				value: '$effect.pre'
-			});
-		}
-		return render_effect(fn);
-	}
-
-	/**
 	 * An effect root whose children can transition out
 	 * @param {() => void} fn
 	 * @returns {(options?: { outro?: boolean }) => Promise<void>}
@@ -1530,7 +1385,7 @@ var options = (function () {
 	 */
 	function template_effect(fn, thunks = [], d = derived$1) {
 		const deriveds = thunks.map(d);
-		const effect = () => fn(...deriveds.map(get$1));
+		const effect = () => fn(...deriveds.map(get$3));
 
 		if (DEV) {
 			define_property(effect, 'name', {
@@ -1938,9 +1793,6 @@ var options = (function () {
 	// If we are working with a get() chain that has no active container,
 	// to prevent memory leaks, we skip adding the reaction.
 	let skip_reaction = false;
-	// Handle collecting all signals which are read during a specific time frame
-	/** @type {Set<Value> | null} */
-	let captured_signals = null;
 
 	function increment_write_version() {
 		return ++write_version;
@@ -2605,13 +2457,9 @@ var options = (function () {
 	 * @param {Value<V>} signal
 	 * @returns {V}
 	 */
-	function get$1(signal) {
+	function get$3(signal) {
 		var flags = signal.f;
 		var is_derived = (flags & DERIVED) !== 0;
-
-		if (captured_signals !== null) {
-			captured_signals.add(signal);
-		}
 
 		// Register the dependency on the current reaction signal.
 		if (active_reaction !== null && !untracking) {
@@ -2688,55 +2536,6 @@ var options = (function () {
 	}
 
 	/**
-	 * Capture an array of all the signals that are read when `fn` is called
-	 * @template T
-	 * @param {() => T} fn
-	 */
-	function capture_signals(fn) {
-		var previous_captured_signals = captured_signals;
-		captured_signals = new Set();
-
-		var captured = captured_signals;
-		var signal;
-
-		try {
-			untrack(fn);
-			if (previous_captured_signals !== null) {
-				for (signal of captured_signals) {
-					previous_captured_signals.add(signal);
-				}
-			}
-		} finally {
-			captured_signals = previous_captured_signals;
-		}
-
-		return captured;
-	}
-
-	/**
-	 * Invokes a function and captures all signals that are read during the invocation,
-	 * then invalidates them.
-	 * @param {() => any} fn
-	 */
-	function invalidate_inner_signals(fn) {
-		var captured = capture_signals(() => untrack(fn));
-
-		for (var signal of captured) {
-			// Go one level up because derived signals created as part of props in legacy mode
-			if ((signal.f & LEGACY_DERIVED_PROP) !== 0) {
-				for (const dep of /** @type {Derived} */ (signal).deps || []) {
-					if ((dep.f & DERIVED) === 0) {
-						// Use internal_set instead of set here and below to avoid mutation validation
-						internal_set(dep, dep.v);
-					}
-				}
-			} else {
-				internal_set(signal, signal.v);
-			}
-		}
-	}
-
-	/**
 	 * When used inside a [`$derived`](https://svelte.dev/docs/svelte/$derived) or [`$effect`](https://svelte.dev/docs/svelte/$effect),
 	 * any state read inside `fn` will not be treated as a dependency.
 	 *
@@ -2771,80 +2570,6 @@ var options = (function () {
 	 */
 	function set_signal_status(signal, status) {
 		signal.f = (signal.f & STATUS_MASK) | status;
-	}
-
-	/**
-	 * Possibly traverse an object and read all its properties so that they're all reactive in case this is `$state`.
-	 * Does only check first level of an object for performance reasons (heuristic should be good for 99% of all cases).
-	 * @param {any} value
-	 * @returns {void}
-	 */
-	function deep_read_state(value) {
-		if (typeof value !== 'object' || !value || value instanceof EventTarget) {
-			return;
-		}
-
-		if (STATE_SYMBOL in value) {
-			deep_read(value);
-		} else if (!Array.isArray(value)) {
-			for (let key in value) {
-				const prop = value[key];
-				if (typeof prop === 'object' && prop && STATE_SYMBOL in prop) {
-					deep_read(prop);
-				}
-			}
-		}
-	}
-
-	/**
-	 * Deeply traverse an object and read all its properties
-	 * so that they're all reactive in case this is `$state`
-	 * @param {any} value
-	 * @param {Set<any>} visited
-	 * @returns {void}
-	 */
-	function deep_read(value, visited = new Set()) {
-		if (
-			typeof value === 'object' &&
-			value !== null &&
-			// We don't want to traverse DOM elements
-			!(value instanceof EventTarget) &&
-			!visited.has(value)
-		) {
-			visited.add(value);
-			// When working with a possible SvelteDate, this
-			// will ensure we capture changes to it.
-			if (value instanceof Date) {
-				value.getTime();
-			}
-			for (let key in value) {
-				try {
-					deep_read(value[key], visited);
-				} catch (e) {
-					// continue
-				}
-			}
-			const proto = get_prototype_of(value);
-			if (
-				proto !== Object.prototype &&
-				proto !== Array.prototype &&
-				proto !== Map.prototype &&
-				proto !== Set.prototype &&
-				proto !== Date.prototype
-			) {
-				const descriptors = get_descriptors(proto);
-				for (let key in descriptors) {
-					const get = descriptors[key].get;
-					if (get) {
-						try {
-							get.call(value);
-						} catch (e) {
-							// continue
-						}
-					}
-				}
-			}
-		}
 	}
 
 	/**
@@ -3481,7 +3206,7 @@ var options = (function () {
 		});
 
 		block(() => {
-			var array = get$1(each_array);
+			var array = get$3(each_array);
 			var length = array.length;
 
 			if (was_empty && length === 0) {
@@ -3515,7 +3240,7 @@ var options = (function () {
 			// that a mutation occurred and it's made the collection MAYBE_DIRTY, so reading the
 			// collection again can provide consistency to the reactive graph again as the deriveds
 			// will now be `CLEAN`.
-			get$1(each_array);
+			get$3(each_array);
 		});
 	}
 
@@ -4053,7 +3778,6 @@ var options = (function () {
 	 * @returns {void}
 	 */
 	function bind_value(input, get, set = get) {
-		var runes = is_runes();
 
 		listen_to_event_and_reset_event(input, 'input', (is_reset) => {
 			if (DEV && input.type === 'checkbox') {
@@ -4068,7 +3792,7 @@ var options = (function () {
 
 			// In runes mode, respect any validation in accessors (doesn't apply in legacy mode,
 			// because we use mutable state which ensures the render effect always runs)
-			if (runes && value !== (value = get())) {
+			if (value !== (value = get())) {
 				var start = input.selectionStart;
 				var end = input.selectionEnd;
 
@@ -4118,33 +3842,6 @@ var options = (function () {
 				// @ts-expect-error the value is coerced on assignment
 				input.value = value ?? '';
 			}
-		});
-	}
-
-	/**
-	 * @param {HTMLInputElement} input
-	 * @param {() => unknown} get
-	 * @param {(value: unknown) => void} set
-	 * @returns {void}
-	 */
-	function bind_checked(input, get, set = get) {
-		listen_to_event_and_reset_event(input, 'change', (is_reset) => {
-			var value = is_reset ? input.defaultChecked : input.checked;
-			set(value);
-		});
-
-		if (
-			// If we are hydrating and the value has since changed,
-			// then use the update value from the input instead.
-			// If defaultChecked is set, then checked == defaultChecked
-			untrack(get) == null
-		) {
-			set(input.checked);
-		}
-
-		render_effect(() => {
-			var value = get();
-			input.checked = Boolean(value);
 		});
 	}
 
@@ -4303,84 +4000,6 @@ var options = (function () {
 		} else {
 			return option.value;
 		}
-	}
-
-	/** @import { ComponentContextLegacy } from '#client' */
-
-	/**
-	 * Legacy-mode only: Call `onMount` callbacks and set up `beforeUpdate`/`afterUpdate` effects
-	 * @param {boolean} [immutable]
-	 */
-	function init(immutable = false) {
-		const context = /** @type {ComponentContextLegacy} */ (component_context);
-
-		const callbacks = context.l.u;
-		if (!callbacks) return;
-
-		let props = () => deep_read_state(context.s);
-
-		if (immutable) {
-			let version = 0;
-			let prev = /** @type {Record<string, any>} */ ({});
-
-			// In legacy immutable mode, before/afterUpdate only fire if the object identity of a prop changes
-			const d = derived$1(() => {
-				let changed = false;
-				const props = context.s;
-				for (const key in props) {
-					if (props[key] !== prev[key]) {
-						prev[key] = props[key];
-						changed = true;
-					}
-				}
-				if (changed) version++;
-				return version;
-			});
-
-			props = () => get$1(d);
-		}
-
-		// beforeUpdate
-		if (callbacks.b.length) {
-			user_pre_effect(() => {
-				observe_all(context, props);
-				run_all(callbacks.b);
-			});
-		}
-
-		// onMount (must run before afterUpdate)
-		user_effect(() => {
-			const fns = untrack(() => callbacks.m.map(run));
-			return () => {
-				for (const fn of fns) {
-					if (typeof fn === 'function') {
-						fn();
-					}
-				}
-			};
-		});
-
-		// afterUpdate
-		if (callbacks.a.length) {
-			user_effect(() => {
-				observe_all(context, props);
-				run_all(callbacks.a);
-			});
-		}
-	}
-
-	/**
-	 * Invoke the getter of all signals associated with a component
-	 * so they can be registered to the effect this function is called in.
-	 * @param {ComponentContextLegacy} context
-	 * @param {(() => void)} props
-	 */
-	function observe_all(context, props) {
-		if (context.l.s) {
-			for (const signal of context.l.s) get$1(signal);
-		}
-
-		props();
 	}
 
 	/** @import { Readable } from './public' */
@@ -4604,11 +4223,92 @@ var options = (function () {
 	 * @param {Readable<T>} store
 	 * @returns {T}
 	 */
-	function get(store) {
+	function get$2(store) {
 		let value;
 		subscribe_to_store(store, (_) => (value = _))();
 		// @ts-expect-error
 		return value;
+	}
+
+	/** @import { StoreReferencesContainer } from '#client' */
+	/** @import { Store } from '#shared' */
+
+	let IS_UNMOUNTED = Symbol();
+
+	/**
+	 * Gets the current value of a store. If the store isn't subscribed to yet, it will create a proxy
+	 * signal that will be updated when the store is. The store references container is needed to
+	 * track reassignments to stores and to track the correct component context.
+	 * @template V
+	 * @param {Store<V> | null | undefined} store
+	 * @param {string} store_name
+	 * @param {StoreReferencesContainer} stores
+	 * @returns {V}
+	 */
+	function store_get(store, store_name, stores) {
+		const entry = (stores[store_name] ??= {
+			store: null,
+			source: mutable_source(undefined),
+			unsubscribe: noop
+		});
+
+		// if the component that setup this is already unmounted we don't want to register a subscription
+		if (entry.store !== store && !(IS_UNMOUNTED in stores)) {
+			entry.unsubscribe();
+			entry.store = store ?? null;
+
+			if (store == null) {
+				entry.source.v = undefined; // see synchronous callback comment below
+				entry.unsubscribe = noop;
+			} else {
+				var is_synchronous_callback = true;
+
+				entry.unsubscribe = subscribe_to_store(store, (v) => {
+					if (is_synchronous_callback) {
+						// If the first updates to the store value (possibly multiple of them) are synchronously
+						// inside a derived, we will hit the `state_unsafe_mutation` error if we `set` the value
+						entry.source.v = v;
+					} else {
+						set$2(entry.source, v);
+					}
+				});
+
+				is_synchronous_callback = false;
+			}
+		}
+
+		// if the component that setup this stores is already unmounted the source will be out of sync
+		// so we just use the `get` for the stores, less performant but it avoids to create a memory leak
+		// and it will keep the value consistent
+		if (store && IS_UNMOUNTED in stores) {
+			return get$2(store);
+		}
+
+		return get$3(entry.source);
+	}
+
+	/**
+	 * Unsubscribes from all auto-subscribed stores on destroy
+	 * @returns {[StoreReferencesContainer, ()=>void]}
+	 */
+	function setup_stores() {
+		/** @type {StoreReferencesContainer} */
+		const stores = {};
+
+		function cleanup() {
+			teardown(() => {
+				for (var store_name in stores) {
+					const ref = stores[store_name];
+					ref.unsubscribe();
+				}
+				define_property(stores, IS_UNMOUNTED, {
+					enumerable: false,
+					value: true
+				});
+			});
+		}
+
+		return [stores, cleanup];
 	}
 
 	/** @import { ComponentContext, ComponentContextLegacy } from '#client' */
@@ -4658,24 +4358,450 @@ var options = (function () {
 		((window.__svelte ??= {}).v ??= new Set()).add(PUBLIC_VERSION);
 	}
 
-	enable_legacy_mode_flag();
+	function promisifyRequest(request) {
+	    return new Promise((resolve, reject) => {
+	        // @ts-ignore - file size hacks
+	        request.oncomplete = request.onsuccess = () => resolve(request.result);
+	        // @ts-ignore - file size hacks
+	        request.onabort = request.onerror = () => reject(request.error);
+	    });
+	}
+	function createStore(dbName, storeName) {
+	    const request = indexedDB.open(dbName);
+	    request.onupgradeneeded = () => request.result.createObjectStore(storeName);
+	    const dbp = promisifyRequest(request);
+	    return (txMode, callback) => dbp.then((db) => callback(db.transaction(storeName, txMode).objectStore(storeName)));
+	}
+	let defaultGetStoreFunc;
+	function defaultGetStore() {
+	    if (!defaultGetStoreFunc) {
+	        defaultGetStoreFunc = createStore('keyval-store', 'keyval');
+	    }
+	    return defaultGetStoreFunc;
+	}
+	/**
+	 * Get a value by its key.
+	 *
+	 * @param key
+	 * @param customStore Method to get a custom store. Use with caution (see the docs).
+	 */
+	function get$1(key, customStore = defaultGetStore()) {
+	    return customStore('readonly', (store) => promisifyRequest(store.get(key)));
+	}
+	/**
+	 * Set a value with a key.
+	 *
+	 * @param key
+	 * @param value
+	 * @param customStore Method to get a custom store. Use with caution (see the docs).
+	 */
+	function set$1(key, value, customStore = defaultGetStore()) {
+	    return customStore('readwrite', (store) => {
+	        store.put(value, key);
+	        return promisifyRequest(store.transaction);
+	    });
+	}
+	function eachCursor(store, callback) {
+	    store.openCursor().onsuccess = function () {
+	        if (!this.result)
+	            return;
+	        callback(this.result);
+	        this.result.continue();
+	    };
+	    return promisifyRequest(store.transaction);
+	}
+	/**
+	 * Get all entries in the store. Each entry is an array of `[key, value]`.
+	 *
+	 * @param customStore Method to get a custom store. Use with caution (see the docs).
+	 */
+	function entries(customStore = defaultGetStore()) {
+	    return customStore('readonly', (store) => {
+	        // Fast path for modern browsers
+	        // (although, hopefully we'll get a simpler path some day)
+	        if (store.getAll && store.getAllKeys) {
+	            return Promise.all([
+	                promisifyRequest(store.getAllKeys()),
+	                promisifyRequest(store.getAll()),
+	            ]).then(([keys, values]) => keys.map((key, i) => [key, values[i]]));
+	        }
+	        const items = [];
+	        return customStore('readonly', (store) => eachCursor(store, (cursor) => items.push([cursor.key, cursor.value])).then(() => items));
+	    });
+	}
 
-	const apiKey = writable("");
+	/** @param {string} key @param {string} [storageType='local'] @returns {Promise<any>} */
+	async function get(key, storageType = "local") {
+	  if (storageType === "indexedDB") return await get$1(key);
+	  else {
+	    return new Promise((resolve) =>
+	      chrome.storage[storageType].get([key], (result) =>
+	        resolve(result[key] !== undefined ? result[key] : null)
+	      )
+	    );
+	  }
+	}
 
-	const selectedTranscriptionModel = writable("whisper-1");
-	const selectedAnalysisModel = writable("gpt-4o");
+	/** @param {string} key @param {any} value @param {string|Array<string>} [storageType='local'] @returns {Promise<boolean>} */
+	async function set(key, value, storageType = "local") {
+	  const storageTypes = Array.isArray(storageType) ? storageType : [storageType];
 
-	const transcriptionSettings = writable({
-	  generateCleaned: true,
-	  generateSummary: true,
-	  generateReply: true,
+	  const promises = storageTypes.map((type) => {
+	    if (type === "indexedDB") return set$1(key, value);
+	    else
+	      return new Promise((resolve) => {
+	        const data = {};
+	        data[key] = value;
+	        chrome.storage[type].set(data, () => {
+	          const error = chrome.runtime.lastError;
+	          resolve(!error);
+	        });
+	      });
+	  });
+
+	  await Promise.all(promises);
+	  return true;
+	}
+
+	/** @param {string} [storageType='local'] @returns {Promise<Object>} */
+	async function getAll(storageType = "local") {
+	  if (storageType === "indexedDB") return await entries();
+	  else
+	    return new Promise((resolve) => {
+	      chrome.storage[storageType].get(null, (items) => {
+	        resolve(items || {});
+	      });
+	    });
+	}
+
+	/** @returns {Promise<Map<string, Object>>} */
+	async function getTranscriptions() {
+	  const storedData = (await get("wa-transcriptions", "indexedDB")) || {};
+	  return new Map(Object.entries(storedData));
+	}
+
+	/** @param {Object} config @returns {Object} */
+	function createBaseProvider(config = {}) {
+	  return {
+	    config,
+	    verifyApiKey: async (apiKey) => {
+	      throw new Error("Function 'verifyApiKey' must be implemented");
+	    },
+
+	    transcribeAudio: async (audioBlob, options = {}) => {
+	      throw new Error("Function 'transcribeAudio' must be implemented");
+	    },
+
+	    processTranscription: async (transcription, options = {}) => {
+	      throw new Error("Function 'processTranscription' must be implemented");
+	    },
+	  };
+	}
+
+	/** @param {string} template @param {Object} variables @returns {string} */
+	function renderTemplate(template, variables = {}) {
+	  return template.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+	    const trimmedKey = key.trim();
+	    return variables[trimmedKey] !== undefined ? variables[trimmedKey] : match;
+	  });
+	}
+
+	const defaultTemplates = {
+	  openai: {
+	    processing: `You are an AI assistant that processes WhatsApp voice message transcriptions. Process the following transcript following these exact instructions:
+
+Your response MUST follow this exact format with FOUR sections separated by '----':
+[original transcript] ---- [grammatically corrected version in {{language}}]\n[English translation] ---- [concise summary in English] ---- [natural reply in {{language}}]
+
+Instructions for each section:
+1. First section: Copy the original transcript exactly as provided.
+2. Second section: Create a grammatically correct, polished version of the transcript in {{language}}. Remove filler words, false starts, and repetitions. Maintain the original meaning. Then, on the next line, provide the English translation.
+3. Third section: Write a concise 1-2 sentence summary in English that captures the core message and key information from the transcript.
+4. Fourth section: Suggest a natural, conversational reply in {{language}} that directly addresses the main points or questions from the message. The reply should sound like something a real person would say in a WhatsApp conversation (not formal or robotic).
+
+Use ONLY '----' as separators with no additional text, headers, or explanations.
+
+TRANSCRIPT:
+{{transcription}}`,
+	  },
+	};
+
+	/** @param {string} errorText @param {string} defaultMessage @returns {Object} */
+	function parseOpenAIError(
+	  errorText,
+	  defaultMessage = "API request failed"
+	) {
+	  try {
+	    const errorData = JSON.parse(errorText);
+
+	    if (!errorData.error)
+	      return {
+	        message: defaultMessage,
+	        type: "unknown",
+	        userMessage:
+	          "There was an error processing your request. Please try again.",
+	      };
+
+	    switch (errorData.error.type) {
+	      case "insufficient_quota":
+	        return {
+	          message:
+	            "Your OpenAI API key has reached its usage limit. Please check your billing details or use a different API key.",
+	          type: "quota_exceeded",
+	          userMessage:
+	            "Your API key has reached its usage limit. Please check your OpenAI account billing details or update your API key.",
+	        };
+
+	      case "invalid_request_error":
+	        return {
+	          message: errorData.error.message || "Invalid request to the API",
+	          type: "invalid_request",
+	          userMessage:
+	            "There was a problem with the request. Please check your settings.",
+	        };
+
+	      case "authentication_error":
+	        return {
+	          message: "Authentication failed. Please check your API key.",
+	          type: "authentication",
+	          userMessage:
+	            "Your API key appears to be invalid. Please check your settings.",
+	        };
+
+	      default:
+	        return {
+	          message: errorData.error.message || defaultMessage,
+	          type: errorData.error.type || "unknown",
+	          userMessage:
+	            "There was an error processing your request. Please try again.",
+	        };
+	    }
+	  } catch (parseError) {
+	    return {
+	      message: errorText || defaultMessage,
+	      type: "unknown",
+	      userMessage:
+	        "There was an error processing your request. Please try again.",
+	    };
+	  }
+	}
+
+	/** @param {Object} config @returns {Object} */
+	function createOpenAIProvider(config = {}) {
+	  const provider = {
+	    ...createBaseProvider(config),
+	    apiKey: config.apiKey,
+	    apiUrl: "https://api.openai.com",
+	    transcriptionModel: config.transcriptionModel || "whisper-1",
+	    processingModel: config.processingModel || "gpt-4o",
+
+	    verifyApiKey: async (apiKey) => {
+	      if (!apiKey) return { valid: false, error: "API key is empty" };
+	      if (!apiKey.startsWith("sk-"))
+	        return { valid: false, error: "Invalid API key format" };
+
+	      try {
+	        const response = await fetch(`${provider.apiUrl}/v1/models`, {
+	          method: "GET",
+	          headers: {
+	            Authorization: `Bearer ${apiKey}`,
+	            "Content-Type": "application/json",
+	          },
+	        });
+
+	        if (!response.ok) {
+	          const errorText = await response.text();
+	          const errorData = parseOpenAIError(errorText, "Invalid API key");
+
+	          return {
+	            valid: false,
+	            error: errorData.message,
+	          };
+	        }
+
+	        return { valid: true };
+	      } catch (error) {
+	        return { valid: false, error: error.message || "Network error" };
+	      }
+	    },
+
+	    transcribeAudio: async (audioBlob, options = {}) => {
+	      if (!provider.apiKey) throw new Error("API key not configured");
+
+	      const formData = new FormData();
+	      formData.append("model", provider.transcriptionModel);
+	      formData.append(
+	        "file",
+	        new File([audioBlob], "audio.ogg", { type: audioBlob.type })
+	      );
+
+	      if (options.language && options.language !== "auto")
+	        formData.append("language", options.language);
+
+	      const response = await fetch(
+	        `${provider.apiUrl}/v1/audio/transcriptions`,
+	        {
+	          method: "POST",
+	          headers: {
+	            Authorization: `Bearer ${provider.apiKey}`,
+	          },
+	          body: formData,
+	        }
+	      );
+
+	      if (!response.ok) {
+	        const errorText = await response.text();
+	        const errorData = parseOpenAIError(errorText, "Transcription failed");
+	        throw new Error(errorData.message);
+	      }
+
+	      const result = await response.json();
+	      return result.text;
+	    },
+
+	    processTranscription: async (transcription, options = {}) => {
+	      if (!provider.apiKey) throw new Error("API key not configured");
+
+	      const promptTemplate =
+	        options.promptTemplate || defaultTemplates.openai.processing;
+
+	      const promptContent = renderTemplate(promptTemplate, {
+	        transcription,
+	        language: options.language || "auto",
+	      });
+
+	      const response = await fetch(`${provider.apiUrl}/v1/chat/completions`, {
+	        method: "POST",
+	        headers: {
+	          "Content-Type": "application/json",
+	          Authorization: `Bearer ${provider.apiKey}`,
+	        },
+	        body: JSON.stringify({
+	          model: provider.processingModel,
+	          messages: [
+	            {
+	              role: "user",
+	              content: promptContent,
+	            },
+	          ],
+	        }),
+	      });
+
+	      if (!response.ok) {
+	        const errorText = await response.text();
+	        const errorData = parseOpenAIError(errorText, "Processing failed");
+	        throw new Error(errorData.message);
+	      }
+
+	      const result = await response.json();
+	      const content = result.choices[0].message.content;
+	      return parseProcessedResponse(content, transcription);
+	    },
+	  };
+
+	  return provider;
+	}
+
+	/** @param {string} response @param {string} originalTranscription @returns {{transcript: string, cleaned: string, summary: string, reply: string}} */
+	function parseProcessedResponse(response, originalTranscription) {
+	  const result = {
+	    transcript: originalTranscription,
+	    cleaned: "",
+	    summary: "",
+	    reply: "",
+	  };
+
+	  try {
+	    const sections = response.split("----").map((s) => s.trim());
+
+	    if (sections.length < 4) {
+	      console.warn("Unexpected response format:", response); // TODO: Remove
+	      result.cleaned = response.trim();
+	      result.summary = "Error: AI response was not in the expected format";
+	      result.reply = "Please try transcribing again";
+	      return result;
+	    }
+
+	    result.cleaned = sections[1] || "";
+	    result.summary = sections[2] || "";
+	    result.reply = sections[3] || "";
+
+	    if (!result.cleaned || !result.summary || !result.reply) {
+	      console.warn("Missing sections in response:", sections); // TODO: Remove
+	      result.summary =
+	        result.summary ||
+	        "Error: Some sections were missing from the AI response";
+	      result.reply = result.reply || "Please try transcribing again";
+	    }
+	  } catch (error) {
+	    console.error("Parsing error:", error.message); // TODO: Remove
+	    result.cleaned = response.trim();
+	    result.summary = "Error: Could not process AI response";
+	    result.reply = "Please try transcribing again";
+	  }
+
+	  return result;
+	}
+
+	const PROVIDERS = {
+	  openai: createOpenAIProvider,
+	  // Future providers can be added here:
+	  // claude: createClaudeProvider,
+	};
+
+	/** @param {string} type @param {Object} config @returns {Object} @throws {Error} */
+	function getProvider(type, config = {}) {
+	  const createProvider = PROVIDERS[type];
+
+	  if (!createProvider) throw new Error(`Unsupported provider type: ${type}`);
+
+	  return createProvider(config);
+	}
+
+	/** @returns {Array<string>} */
+	function getSupportedProviders() {
+	  return Object.keys(PROVIDERS);
+	}
+
+	/** @returns {string} */
+	function getDefaultProviderType() {
+	  return "openai";
+	}
+
+	const DEFAULT_SETTINGS = {
+	  providerType: getDefaultProviderType(),
+	  apiKey: "",
+	  transcriptionModel: "whisper-1",
+	  processingModel: "gpt-4o",
 	  language: "auto",
-	  promptTemplate: `Based on the voice message transcript, generate four outputs:
-TRANSCRIPT: The exact transcript
-CLEANED: A grammatically corrected, filler-word-free version
-SUMMARY: A concise summary in 1-2 sentences
-REPLY: A natural, helpful suggested reply to this message`,
-	});
+	  promptTemplate: "",
+	  isExtensionEnabled: true,
+	};
+
+	const supportedLanguages = [
+	  { id: "auto", name: "Auto-detect" },
+	  { id: "en", name: "English" },
+	  { id: "es", name: "Spanish" },
+	  { id: "fr", name: "French" },
+	  { id: "de", name: "German" },
+	  { id: "it", name: "Italian" },
+	  { id: "pt", name: "Portuguese" },
+	  { id: "nl", name: "Dutch" },
+	  { id: "ru", name: "Russian" },
+	  { id: "ja", name: "Japanese" },
+	  { id: "zh", name: "Chinese" },
+	  { id: "ar", name: "Arabic" },
+	];
+
+	const availableProviders = writable(
+	  getSupportedProviders().map((id) => ({
+	    id,
+	    name: id.charAt(0).toUpperCase() + id.slice(1),
+	  }))
+	);
+
+	const settings = writable({});
+	const transcriptionCache = writable(new Map());
 
 	const extensionStatus = writable({
 	  isApiKeyConfigured: false,
@@ -4691,384 +4817,574 @@ REPLY: A natural, helpful suggested reply to this message`,
 	    return { text: "Extension disabled", type: "warning" };
 	  if ($status.lastError)
 	    return { text: "Error: " + $status.lastError, type: "error" };
-
 	  if ($status.pendingTranscriptions > 0)
 	    return { text: "Transcribing...", type: "pending" };
 
 	  return { text: "Ready", type: "success" };
 	});
 
-	function initializeStores() {
-	  return new Promise((resolve) => {
-	    chrome.storage.local.get(["openai_api_key"], (localResult) => {
-	      if (localResult.openai_api_key) {
-	        apiKey.set(localResult.openai_api_key);
-	        extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: true }));
-	      }
+	/** @param {Object} updates */
+	function updateStatus(updates) {
+	  extensionStatus.update((status) => {
+	    const newStatus = { ...status };
 
-	      chrome.storage.sync.get(
-	        [
-	          "openai_api_key",
-	          "selectedTranscriptionModel",
-	          "selectedAnalysisModel",
-	          "transcriptionSettings",
-	          "isExtensionEnabled",
-	        ],
-	        (result) => {
-	          if (!localResult.openai_api_key && result.openai_api_key) {
-	            apiKey.set(result.openai_api_key);
-	            extensionStatus.update((s) => ({ ...s, isApiKeyConfigured: true }));
+	    if (updates.pendingTranscriptions !== undefined) {
+	      if (typeof updates.pendingTranscriptions === "boolean") {
+	        newStatus.pendingTranscriptions += updates.pendingTranscriptions
+	          ? 1
+	          : -1;
+	        if (newStatus.pendingTranscriptions < 0)
+	          newStatus.pendingTranscriptions = 0;
+	      } else newStatus.pendingTranscriptions = updates.pendingTranscriptions;
+	    }
 
-	            chrome.storage.local.set({ openai_api_key: result.openai_api_key });
-	          }
+	    if (updates.lastError !== undefined)
+	      newStatus.lastError = updates.lastError;
+	    if (updates.isExtensionEnabled !== undefined)
+	      newStatus.isExtensionEnabled = updates.isExtensionEnabled;
+	    if (updates.isApiKeyConfigured !== undefined)
+	      newStatus.isApiKeyConfigured = updates.isApiKeyConfigured;
 
-	          if (result.selectedTranscriptionModel)
-	            selectedTranscriptionModel.set(result.selectedTranscriptionModel);
-
-	          if (result.selectedAnalysisModel)
-	            selectedAnalysisModel.set(result.selectedAnalysisModel);
-
-	          if (result.transcriptionSettings)
-	            transcriptionSettings.set(result.transcriptionSettings);
-
-	          if (result.isExtensionEnabled !== undefined) {
-	            extensionStatus.update((s) => ({
-	              ...s,
-	              isExtensionEnabled: result.isExtensionEnabled,
-	            }));
-	          }
-
-	          get(apiKey);
-	          resolve();
-	        }
-	      );
-	    });
+	    return newStatus;
 	  });
 	}
 
-	async function saveApiKey(
-		_,
-		apiKeyValue,
+	async function initializeSettings() {
+	  const transcriptions = await getTranscriptions();
+	  transcriptionCache.set(transcriptions);
+
+	  const apiKey =
+	    (await get("apiKey", "local")) ||
+	    (await get("apiKey", "sync"));
+
+	  const storedSettings = await getAll("sync");
+
+	  settings.set({
+	    ...DEFAULT_SETTINGS,
+	    ...storedSettings,
+	    apiKey: apiKey || "",
+	  });
+
+	  updateStatus({
+	    isApiKeyConfigured: !!apiKey,
+	    isExtensionEnabled: storedSettings.isExtensionEnabled !== false,
+	  });
+
+	  setupSettingsPersistence();
+	}
+
+	function setupSettingsPersistence() {
+	  let previousSettings = {};
+
+	  settings.subscribe(async (currentSettings) => {
+	    if (Object.keys(currentSettings).length === 0) return;
+
+	    const hasChanged = Object.entries(currentSettings).some(
+	      ([key, value]) => previousSettings[key] !== value
+	    );
+
+	    if (!hasChanged && Object.keys(previousSettings).length > 0) return;
+	    previousSettings = { ...currentSettings };
+
+	    if (currentSettings.apiKey) {
+	      await set("apiKey", currentSettings.apiKey, [
+	        "local",
+	        "sync",
+	      ]);
+	      updateStatus({ isApiKeyConfigured: true });
+	    }
+
+	    for (const [key, value] of Object.entries(currentSettings))
+	      if (key !== "apiKey") await set(key, value, "sync");
+
+	    chrome.runtime.sendMessage({ action: "settingsUpdated" });
+	  });
+
+	  transcriptionCache.subscribe(async (cache) => {
+	    if (cache.size > 0) {
+	      const transcriptionObj = Object.fromEntries(cache);
+	      await set(
+	        "wa-transcriptions",
+	        transcriptionObj,
+	        "indexedDB"
+	      );
+	    }
+	  });
+	}
+
+	/** @returns {Object} */
+	function getSettings() {
+	  return get$2(settings);
+	}
+
+	/** @param {Object} updates */
+	function updateSettings(updates) {
+	  settings.update((s) => ({ ...s, ...updates }));
+	}
+
+	/** @param {string} apiKey @param {string} providerType @returns {Promise<{valid: boolean, error?: string}>} */
+	async function verifyApiKey$1(apiKey, providerType = null) {
+	  const settings = await getSettings();
+	  const type = providerType || settings.providerType || "openai";
+	  const provider = getProvider(type, { apiKey });
+	  return provider.verifyApiKey(apiKey);
+	}
+
+	function resetPromptTemplate(_, promptTemplate, providerType) {
+		set$2(promptTemplate, defaultTemplates[get$3(providerType)]?.processing || defaultTemplates.openai.processing, true);
+	}
+
+	async function verifyApiKey(
+		__1,
+		apiKey,
 		verificationStatus,
-		isVerifying
+		isVerifying,
+		providerType
 	) {
-		if (!get$1(apiKeyValue)) {
-			set(verificationStatus, {
-				valid: false,
-				message: "API key cannot be empty"
-			});
+		if (!get$3(apiKey)) {
+			set$2(
+				verificationStatus,
+				{
+					valid: false,
+					message: "API key cannot be empty"
+				},
+				true
+			);
 
 			return;
 		}
 
-		set(isVerifying, true);
-		set(verificationStatus, null);
-
-		const result = await chrome.runtime.sendMessage({
-			action: "verifyApiKey",
-			apiKey: get$1(apiKeyValue)
-		});
-
-		if (result.valid) {
-			apiKey.set(get$1(apiKeyValue));
-
-			set(verificationStatus, {
-				valid: true,
-				message: "API key verified successfully!"
-			});
-		} else {
-			set(verificationStatus, {
-				valid: false,
-				message: result.error || "Invalid API key"
-			});
-		}
-
-		set(isVerifying, false);
-	}
-
-	function saveTranscriptionSettings(
-		__1,
-		generateCleaned,
-		generateSummary,
-		generateReply,
-		language,
-		promptTemplate,
-		defaultPromptTemplate,
-		transcriptionSaveStatus
-	) {
-		transcriptionSettings.set({
-			generateCleaned: get$1(generateCleaned),
-			generateSummary: get$1(generateSummary),
-			generateReply: get$1(generateReply),
-			language: get$1(language),
-			promptTemplate: get$1(promptTemplate) || defaultPromptTemplate
-		});
+		set$2(isVerifying, true);
+		set$2(verificationStatus, null);
 
 		try {
-			chrome.runtime.sendMessage({ action: "settingsUpdated" }, (response) => {
-				// Check if there was an error with the messaging
-				const lastError = chrome.runtime.lastError;
+			const result = await verifyApiKey$1(get$3(apiKey), get$3(providerType));
 
-				if (lastError) {
-					console.log("Message error:", lastError.message); // The settings were still saved locally even if messaging failed
-				}
-
-				console.log("transcription settings updated:", response);
-
-				// Show success message
-				set(transcriptionSaveStatus, {
-					success: true,
-					message: "Transcription settings saved successfully!"
-				});
-
-				// Clear the message after 3 seconds
-				setTimeout(
-					() => {
-						set(transcriptionSaveStatus, null);
+			if (result.valid) {
+				set$2(
+					verificationStatus,
+					{
+						valid: true,
+						message: "API key verified successfully!"
 					},
-					3000
+					true
 				);
-			});
+
+				updateSettings({ apiKey: get$3(apiKey) });
+			} else {
+				set$2(
+					verificationStatus,
+					{
+						valid: false,
+						message: result.error || "Invalid API key"
+					},
+					true
+				);
+			}
 		} catch(error) {
-			console.error("Error sending settings updated message:", error);
-
-			// The settings were still saved locally even if messaging failed
-			set(transcriptionSaveStatus, {
-				success: true,
-				message: "Transcription settings saved successfully!"
-			});
-
-			// Clear the message after 3 seconds
-			setTimeout(
-				() => {
-					set(transcriptionSaveStatus, null);
+			set$2(
+				verificationStatus,
+				{
+					valid: false,
+					message: error.message || "Error verifying API key"
 				},
-				3000
+				true
 			);
+		} finally {
+			set$2(isVerifying, false);
 		}
 	}
 
-	function resetPromptTemplate(__2, promptTemplate, defaultPromptTemplate) {
-		set(promptTemplate, defaultPromptTemplate);
-	}
-
-	var root_1 = template(`<div> </div>`);
-	var root_2 = template(`<option> </option>`);
-	var root_3 = template(`<div class="bg-green-50 text-green-600 border-l-2 border-green-500 p-2 rounded-tr-md rounded-br-md text-sm flex-1 mr-4"> </div>`);
-	var root_4 = template(`<div></div>`);
-
-	var root = template(`<div class="max-w-4xl mx-auto p-5 font-sans text-gray-800"><h1 class="text-[#00a884] text-2xl mb-8 mt-0 text-center font-bold">WhatsApp AI Transcriber Plus Settings</h1> <section class="bg-white p-6 rounded-xl shadow-md mb-8"><h2 class="text-[#00a884] text-xl mt-0 mb-5 border-b border-gray-200 pb-3">API Key</h2> <div><div class="mb-5"><label for="api-key" class="block mb-2 font-medium">OpenAI API Key</label> <div class="flex gap-2"><input type="text" id="api-key" placeholder="sk-..." class="w-full p-2.5 border border-gray-300 rounded-md text-base"> <button type="button" class="bg-[#00a884] text-white border-0 py-2.5 px-4 text-base rounded-md cursor-pointer transition-colors hover:bg-[#008f72] disabled:bg-gray-300 disabled:cursor-not-allowed"> </button></div> <!></div></div> <div class="mt-5 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-tr-md rounded-br-md"><h3 class="mt-0 text-blue-600 text-base font-medium">How to Get an OpenAI API Key</h3> <ol class="pl-5 list-decimal"><li class="mb-1">Go to <a href="https://platform.openai.com/signup" target="_blank" class="text-blue-600 no-underline hover:underline">OpenAI Platform</a> and create an account or sign in.</li> <li class="mb-1">Navigate to <a href="https://platform.openai.com/api-keys" target="_blank" class="text-blue-600 no-underline hover:underline">API Keys</a> in your account dashboard.</li> <li class="mb-1">Click on "Create new secret key" and copy the key.</li> <li class="mb-1">Paste the key in the field above and click "Save & Verify".</li></ol> <p class="italic text-gray-600 mb-2">Note: The OpenAI API is a paid service. You will be charged based on
-        your usage.</p></div></section> <section class="bg-white p-6 rounded-xl shadow-md mb-8"><h2 class="text-[#00a884] text-xl mt-0 mb-5 border-b border-gray-200 pb-3">Transcription Settings</h2> <div><div class="mb-5"><label for="language" class="block mb-2 font-medium">Preferred Language</label> <select id="language" class="w-full p-2.5 border border-gray-300 rounded-md text-base appearance-none"></select> <p class="text-xs text-gray-600 mt-1.5 mb-0">Auto-detect will try to identify the language in the audio.</p></div> <div class="mb-5"><h3 class="text-gray-800 text-base font-medium my-2.5">Generate Outputs</h3> <label class="flex items-center mb-2.5 cursor-pointer"><input type="checkbox" class="w-4 h-4 text-[#00a884] bg-gray-100 border-gray-300 rounded focus:ring-[#00a884] focus:ring-2"> <span class="ml-2">Cleaned Version (fixed grammar, filler removal)</span></label> <label class="flex items-center mb-2.5 cursor-pointer"><input type="checkbox" class="w-4 h-4 text-[#00a884] bg-gray-100 border-gray-300 rounded focus:ring-[#00a884] focus:ring-2"> <span class="ml-2">Brief Summary</span></label> <label class="flex items-center mb-2.5 cursor-pointer"><input type="checkbox" class="w-4 h-4 text-[#00a884] bg-gray-100 border-gray-300 rounded focus:ring-[#00a884] focus:ring-2"> <span class="ml-2">Suggested Reply</span></label></div> <div class="mb-5"><label for="prompt-template" class="block mb-2 font-medium">Prompt Template</label> <div class="relative"><textarea id="prompt-template" rows="8" class="w-full p-2.5 border border-gray-300 rounded-md text-base resize-y min-h-[100px] font-sans leading-normal"></textarea> <button type="button" class="absolute bottom-2.5 right-2.5 text-xs py-1 px-2.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Reset to Default</button></div> <p class="text-xs text-gray-600 mt-1.5 mb-0">This prompt is sent to the AI model to generate the outputs. Use
-          "TRANSCRIPT" as a placeholder for the transcription.</p></div> <div class="flex justify-between items-center mt-5"><!> <button type="button" class="bg-[#00a884] text-white border-0 py-2.5 px-4 text-base rounded-md cursor-pointer transition-colors hover:bg-[#008f72]">Save Settings</button></div></div></section></div>`);
-
-	function Options($$anchor, $$props) {
-		push($$props, false);
-
-		let apiKeyValue = mutable_source("");
-		let language = mutable_source("auto");
-		let isVerifying = mutable_source(false);
-		let promptTemplate = mutable_source("");
-		let generateReply = mutable_source(true);
-		let generateCleaned = mutable_source(true);
-		let generateSummary = mutable_source(true);
-		let verificationStatus = mutable_source(null);
-		let transcriptionSaveStatus = mutable_source(null);
-
-		const languages = [
-			{ id: "auto", name: "Auto-detect" },
-			{ id: "en", name: "English" },
-			{ id: "es", name: "Spanish" },
-			{ id: "fr", name: "French" },
-			{ id: "de", name: "German" },
-			{ id: "it", name: "Italian" },
-			{ id: "pt", name: "Portuguese" },
-			{ id: "nl", name: "Dutch" },
-			{ id: "ru", name: "Russian" },
-			{ id: "ja", name: "Japanese" },
-			{ id: "zh", name: "Chinese" },
-			{ id: "ar", name: "Arabic" }
-		];
-
-		const defaultPromptTemplate = `Based on the voice message transcript, generate four outputs:
-1. TRANSCRIPT: The exact transcript
-2. CLEANED: A grammatically corrected, filler-word-free version
-3. SUMMARY: A concise summary in 1-2 sentences
-4. REPLY: A natural, helpful suggested reply to this message`;
-
-		(async () => {
-			await initializeStores();
-
-			const unsubscribeApiKey = apiKey.subscribe((value) => {
-				set(apiKeyValue, value);
-			});
-
-			const unsubscribeTranscriptionModel = selectedTranscriptionModel.subscribe((value) => {
-			});
-
-			const unsubscribeAnalysisModel = selectedAnalysisModel.subscribe((value) => {
-			});
-
-			const unsubscribeSettings = transcriptionSettings.subscribe((value) => {
-				set(generateCleaned, value.generateCleaned);
-				set(generateSummary, value.generateSummary);
-				set(generateReply, value.generateReply);
-				set(language, value.language);
-				set(promptTemplate, value.promptTemplate);
-			});
-
-			return () => {
-				unsubscribeApiKey();
-				unsubscribeSettings();
-				unsubscribeAnalysisModel();
-				unsubscribeTranscriptionModel();
-			};
-		})();
-
-		init();
-
-		var div = root();
-		var section = sibling(child(div), 2);
-		var div_1 = sibling(child(section), 2);
-		var div_2 = child(div_1);
-		var div_3 = sibling(child(div_2), 2);
-		var input = child(div_3);
-
-		var button = sibling(input, 2);
-
-		button.__click = [
-			saveApiKey,
-			apiKeyValue,
-			verificationStatus,
-			isVerifying
-		];
-
-		var text = child(button);
-
-		var node = sibling(div_3, 2);
-
-		{
-			var consequent = ($$anchor) => {
-				var div_4 = root_1();
-				var text_1 = child(div_4);
-
-				template_effect(() => {
-					set_class(div_4, 1, clsx([
-						"mt-2.5 p-2 rounded-tr-md rounded-br-md text-sm",
-						get$1(verificationStatus).valid && "bg-green-50 text-green-600 border-l-2 border-green-500",
-						!get$1(verificationStatus).valid && "bg-red-50 text-red-600 border-l-4 border-red-500"
-					]));
-
-					set_text(text_1, get$1(verificationStatus).message);
-				});
-
-				append($$anchor, div_4);
-			};
-
-			if_block(node, ($$render) => {
-				if (get$1(verificationStatus)) $$render(consequent);
-			});
-		}
-
-		var section_1 = sibling(section, 2);
-		var div_5 = sibling(child(section_1), 2);
-		var div_6 = child(div_5);
-		var select = sibling(child(div_6), 2);
-
-		template_effect(() => {
-			get$1(language);
-
-			invalidate_inner_signals(() => {
-			});
+	function saveSettings(
+		__2,
+		providerType,
+		transcriptionModel,
+		processingModel,
+		language,
+		promptTemplate,
+		isExtensionEnabled,
+		settingsSaved
+	) {
+		updateSettings({
+			providerType: get$3(providerType),
+			transcriptionModel: get$3(transcriptionModel),
+			processingModel: get$3(processingModel),
+			language: get$3(language),
+			promptTemplate: get$3(promptTemplate),
+			isExtensionEnabled: get$3(isExtensionEnabled)
 		});
 
-		each(select, 5, () => languages, index, ($$anchor, lang) => {
-			var option = root_2();
+		set$2(
+			settingsSaved,
+			{
+				success: true,
+				message: "Settings saved successfully!"
+			},
+			true
+		);
+
+		setTimeout(() => set$2(settingsSaved, null), 3000);
+	}
+
+	var root_1 = template(`<option> </option>`);
+	var root_2 = template(`<p> </p>`);
+	var root_3 = template(`<option> </option>`);
+	var on_click = (__3, isExtensionEnabled) => set$2(isExtensionEnabled, !get$3(isExtensionEnabled));
+	var root_4 = template(`<div> </div>`);
+
+	var root = template(`<main><header><h1>WhatsApp AI Transcriber Settings</h1> <p>Configure your WhatsApp transcription settings and AI provider.</p></header> <section><h2>API Configuration</h2> <div><label for="provider">AI Provider</label> <select id="provider"></select></div> <div><label for="apiKey">API Key</label> <div><input id="apiKey" type="password" placeholder="Enter your API key"> <button type="button"> </button></div> <!> <p>Your API key is stored locally and used only for transcription requests.</p></div></section> <section><h2>Model Settings</h2> <div><label for="transcriptionModel">Transcription Model</label> <input id="transcriptionModel" type="text"></div> <div><label for="processingModel">Processing Model</label> <input id="processingModel" type="text"></div></section> <section><h2>Transcription Settings</h2> <div><label for="language">Language</label> <select id="language"></select> <p>Default language for transcription. Auto-detect will try to identify the
+        language automatically.</p></div> <div><div><label for="extension-enabled">Enable Extension</label> <button type="button" role="switch" id="extension-enabled"><span class="sr-only">Use setting</span> <span aria-hidden="true"></span></button></div> <p>Turn the extension on or off without uninstalling.</p></div> <div><div><label for="promptTemplate">Prompt Template</label> <button type="button">Reset to default</button></div> <textarea id="promptTemplate" rows="8" placeholder="Enter your custom prompt template"></textarea> <p>Customize how the AI processes your transcriptions. Use double curly
+        braces around "transcription" and "language" to use them as variables.</p></div></section> <div><button type="button">Save Settings</button></div> <!></main>`);
+
+	function Options($$anchor, $$props) {
+		push($$props, true);
+
+		const [$$stores, $$cleanup] = setup_stores();
+		const $availableProviders = () => store_get(availableProviders, '$availableProviders', $$stores);
+		let apiKey = state("");
+		let language = state("auto");
+		let promptTemplate = state("");
+		let isExtensionEnabled = state(true);
+		let processingModel = state("gpt-4o");
+		let transcriptionModel = state("whisper-1");
+		let providerType = state(proxy(getDefaultProviderType()));
+		let isVerifying = state(false);
+		let settingsSaved = state(null);
+		let verificationStatus = state(null);
+
+		(async () => {
+			await initializeSettings();
+
+			const unsubscribe = settings.subscribe((value) => {
+				if (Object.keys(value).length === 0) return;
+				set$2(apiKey, value.apiKey || "", true);
+				set$2(providerType, value.providerType || getDefaultProviderType(), true);
+				set$2(language, value.language || "auto", true);
+				set$2(transcriptionModel, value.transcriptionModel || "whisper-1", true);
+				set$2(processingModel, value.processingModel || "gpt-4o", true);
+				set$2(promptTemplate, value.promptTemplate || "", true);
+				set$2(isExtensionEnabled, value.isExtensionEnabled !== false);
+			});
+
+			return unsubscribe;
+		})();
+
+		var main = root();
+
+		set_class(main, 1, clsx(["p-6 max-w-3xl mx-auto font-sans"]));
+
+		var header = child(main);
+
+		set_class(header, 1, clsx(["mb-8"]));
+
+		var h1 = child(header);
+
+		set_class(h1, 1, clsx(["text-2xl font-bold text-[#128c7e] mb-2"]));
+
+		var p = sibling(h1, 2);
+
+		set_class(p, 1, clsx(["text-gray-600"]));
+
+		var section = sibling(header, 2);
+
+		set_class(section, 1, clsx(["mb-8 p-6 bg-white rounded-lg shadow-md"]));
+
+		var h2 = child(section);
+
+		set_class(h2, 1, clsx(["text-xl font-semibold mb-4 text-gray-800"]));
+
+		var div = sibling(h2, 2);
+
+		set_class(div, 1, clsx(["mb-4"]));
+
+		var label = child(div);
+
+		set_class(label, 1, clsx(["block text-sm font-medium text-gray-700 mb-1"]));
+
+		var select = sibling(label, 2);
+
+		set_class(select, 1, clsx([
+			"w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]"
+		]));
+
+		each(select, 5, $availableProviders, index, ($$anchor, provider) => {
+			var option = root_1();
 			var option_value = {};
-			var text_2 = child(option);
+			var text = child(option);
 
 			template_effect(() => {
-				if (option_value !== (option_value = get$1(lang).id)) {
-					option.value = (option.__value = get$1(lang).id) ?? '';
+				if (option_value !== (option_value = get$3(provider).id)) {
+					option.value = (option.__value = get$3(provider).id) ?? '';
 				}
 
-				set_text(text_2, get$1(lang).name);
+				set_text(text, get$3(provider).name);
 			});
 
 			append($$anchor, option);
 		});
 
-		var div_7 = sibling(div_6, 2);
-		var label = sibling(child(div_7), 2);
-		var input_1 = child(label);
+		var div_1 = sibling(div, 2);
 
-		var label_1 = sibling(label, 2);
-		var input_2 = child(label_1);
+		set_class(div_1, 1, clsx(["mb-4"]));
 
-		var label_2 = sibling(label_1, 2);
-		var input_3 = child(label_2);
+		var label_1 = child(div_1);
 
-		var div_8 = sibling(div_7, 2);
-		var div_9 = sibling(child(div_8), 2);
-		var textarea = child(div_9);
-		set_attribute(textarea, 'placeholder', defaultPromptTemplate);
+		set_class(label_1, 1, clsx(["block text-sm font-medium text-gray-700 mb-1"]));
 
-		var button_1 = sibling(textarea, 2);
+		var div_2 = sibling(label_1, 2);
 
-		button_1.__click = [
-			resetPromptTemplate,
-			promptTemplate,
-			defaultPromptTemplate
+		set_class(div_2, 1, clsx(["flex"]));
+
+		var input = child(div_2);
+
+		set_class(input, 1, clsx([
+			"flex-1 p-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]"
+		]));
+
+		var button = sibling(input, 2);
+
+		button.__click = [
+			verifyApiKey,
+			apiKey,
+			verificationStatus,
+			isVerifying,
+			providerType
 		];
 
-		var div_10 = sibling(div_8, 2);
-		var node_1 = child(div_10);
+		set_class(button, 1, clsx([
+			"bg-[#00a884] text-white px-4 py-2 rounded-r-md hover:bg-[#008f72] focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:ring-offset-2 disabled:opacity-50"
+		]));
+
+		var text_1 = child(button);
+
+		var node = sibling(div_2, 2);
 
 		{
-			var consequent_1 = ($$anchor) => {
-				var div_11 = root_3();
-				var text_3 = child(div_11);
-				template_effect(() => set_text(text_3, get$1(transcriptionSaveStatus).message));
-				append($$anchor, div_11);
+			var consequent = ($$anchor) => {
+				var p_1 = root_2();
+				var text_2 = child(p_1);
+
+				template_effect(() => {
+					set_class(p_1, 1, clsx([
+						"mt-2 text-sm break-words max-w-full overflow-hidden",
+						get$3(verificationStatus).valid ? "text-green-600" : "text-red-600"
+					]));
+
+					set_text(text_2, get$3(verificationStatus).message);
+				});
+
+				append($$anchor, p_1);
 			};
 
-			var alternate = ($$anchor) => {
-				var div_12 = root_4();
-
-				append($$anchor, div_12);
-			};
-
-			if_block(node_1, ($$render) => {
-				if (get$1(transcriptionSaveStatus)) $$render(consequent_1); else $$render(alternate, false);
+			if_block(node, ($$render) => {
+				if (get$3(verificationStatus)) $$render(consequent);
 			});
 		}
 
-		var button_2 = sibling(node_1, 2);
+		var p_2 = sibling(node, 2);
 
-		button_2.__click = [
-			saveTranscriptionSettings,
-			generateCleaned,
-			generateSummary,
-			generateReply,
-			language,
-			promptTemplate,
-			defaultPromptTemplate,
-			transcriptionSaveStatus
-		];
+		set_class(p_2, 1, clsx(["mt-2 text-xs text-gray-500"]));
 
-		template_effect(() => {
-			input.disabled = get$1(isVerifying);
-			button.disabled = get$1(isVerifying);
-			set_text(text, get$1(isVerifying) ? "Verifying..." : "Save & Verify");
+		var section_1 = sibling(section, 2);
+
+		set_class(section_1, 1, clsx(["mb-8 p-6 bg-white rounded-lg shadow-md"]));
+
+		var h2_1 = child(section_1);
+
+		set_class(h2_1, 1, clsx(["text-xl font-semibold mb-4 text-gray-800"]));
+
+		var div_3 = sibling(h2_1, 2);
+
+		set_class(div_3, 1, clsx(["mb-4"]));
+
+		var label_2 = child(div_3);
+
+		set_class(label_2, 1, clsx(["block text-sm font-medium text-gray-700 mb-1"]));
+
+		var input_1 = sibling(label_2, 2);
+
+		set_class(input_1, 1, clsx([
+			"w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]"
+		]));
+
+		var div_4 = sibling(div_3, 2);
+
+		set_class(div_4, 1, clsx(["mb-4"]));
+
+		var label_3 = child(div_4);
+
+		set_class(label_3, 1, clsx(["block text-sm font-medium text-gray-700 mb-1"]));
+
+		var input_2 = sibling(label_3, 2);
+
+		set_class(input_2, 1, clsx([
+			"w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]"
+		]));
+
+		var section_2 = sibling(section_1, 2);
+
+		set_class(section_2, 1, clsx(["mb-8 p-6 bg-white rounded-lg shadow-md"]));
+
+		var h2_2 = child(section_2);
+
+		set_class(h2_2, 1, clsx(["text-xl font-semibold mb-4 text-gray-800"]));
+
+		var div_5 = sibling(h2_2, 2);
+
+		set_class(div_5, 1, clsx(["mb-4"]));
+
+		var label_4 = child(div_5);
+
+		set_class(label_4, 1, clsx(["block text-sm font-medium text-gray-700 mb-1"]));
+
+		var select_1 = sibling(label_4, 2);
+
+		set_class(select_1, 1, clsx([
+			"w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]"
+		]));
+
+		each(select_1, 21, () => supportedLanguages, index, ($$anchor, lang) => {
+			var option_1 = root_3();
+			var option_1_value = {};
+			var text_3 = child(option_1);
+
+			template_effect(() => {
+				if (option_1_value !== (option_1_value = get$3(lang).id)) {
+					option_1.value = (option_1.__value = get$3(lang).id) ?? '';
+				}
+
+				set_text(text_3, get$3(lang).name);
+			});
+
+			append($$anchor, option_1);
 		});
 
-		bind_value(input, () => get$1(apiKeyValue), ($$value) => set(apiKeyValue, $$value));
-		bind_select_value(select, () => get$1(language), ($$value) => set(language, $$value));
-		bind_checked(input_1, () => get$1(generateCleaned), ($$value) => set(generateCleaned, $$value));
-		bind_checked(input_2, () => get$1(generateSummary), ($$value) => set(generateSummary, $$value));
-		bind_checked(input_3, () => get$1(generateReply), ($$value) => set(generateReply, $$value));
-		bind_value(textarea, () => get$1(promptTemplate), ($$value) => set(promptTemplate, $$value));
-		append($$anchor, div);
+		var p_3 = sibling(select_1, 2);
+
+		set_class(p_3, 1, clsx(["mt-1 text-xs text-gray-500"]));
+
+		var div_6 = sibling(div_5, 2);
+
+		set_class(div_6, 1, clsx(["mb-4"]));
+
+		var div_7 = child(div_6);
+
+		set_class(div_7, 1, clsx(["flex items-center justify-between"]));
+
+		var label_5 = child(div_7);
+
+		set_class(label_5, 1, clsx(["text-sm font-medium text-gray-700"]));
+
+		var button_1 = sibling(label_5, 2);
+
+		button_1.__click = [on_click, isExtensionEnabled];
+
+		var span = sibling(child(button_1), 2);
+
+		var p_4 = sibling(div_7, 2);
+
+		set_class(p_4, 1, clsx(["mt-1 text-xs text-gray-500"]));
+
+		var div_8 = sibling(div_6, 2);
+
+		set_class(div_8, 1, clsx(["mb-4"]));
+
+		var div_9 = child(div_8);
+
+		set_class(div_9, 1, clsx(["flex justify-between items-center mb-1"]));
+
+		var label_6 = child(div_9);
+
+		set_class(label_6, 1, clsx(["block text-sm font-medium text-gray-700"]));
+
+		var button_2 = sibling(label_6, 2);
+
+		button_2.__click = [
+			resetPromptTemplate,
+			promptTemplate,
+			providerType
+		];
+
+		set_class(button_2, 1, clsx([
+			"text-xs text-[#00a884] hover:text-[#008f72] underline"
+		]));
+
+		var textarea = sibling(div_9, 2);
+
+		set_class(textarea, 1, clsx([
+			"w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884] font-mono text-sm"
+		]));
+
+		var p_5 = sibling(textarea, 2);
+
+		set_class(p_5, 1, clsx(["mt-1 text-xs text-gray-500"]));
+
+		var div_10 = sibling(section_2, 2);
+
+		set_class(div_10, 1, clsx(["flex justify-end"]));
+
+		var button_3 = child(div_10);
+
+		button_3.__click = [
+			saveSettings,
+			providerType,
+			transcriptionModel,
+			processingModel,
+			language,
+			promptTemplate,
+			isExtensionEnabled,
+			settingsSaved
+		];
+
+		set_class(button_3, 1, clsx([
+			"bg-[#00a884] text-white px-6 py-2 rounded-md hover:bg-[#008f72] focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:ring-offset-2"
+		]));
+
+		var node_1 = sibling(div_10, 2);
+
+		{
+			var consequent_1 = ($$anchor) => {
+				var div_11 = root_4();
+
+				set_class(div_11, 1, clsx([
+					"mt-4 p-3 bg-green-100 text-green-800 rounded-md"
+				]));
+
+				var text_4 = child(div_11);
+				template_effect(() => set_text(text_4, get$3(settingsSaved).message));
+				append($$anchor, div_11);
+			};
+
+			if_block(node_1, ($$render) => {
+				if (get$3(settingsSaved)) $$render(consequent_1);
+			});
+		}
+
+		template_effect(() => {
+			button.disabled = get$3(isVerifying);
+			set_text(text_1, get$3(isVerifying) ? "Verifying..." : "Verify");
+			set_attribute(button_1, 'aria-checked', get$3(isExtensionEnabled));
+
+			set_class(button_1, 1, clsx([
+				"relative inline-flex flex-shrink-0 h-6 w-11 border-2 items-center border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00a884]",
+				get$3(isExtensionEnabled) ? "bg-[#00a884]" : "bg-gray-200"
+			]));
+
+			set_class(span, 1, clsx([
+				"pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200",
+				get$3(isExtensionEnabled) ? "translate-x-[13px]" : "-translate-x-[9px]"
+			]));
+		});
+
+		bind_select_value(select, () => get$3(providerType), ($$value) => set$2(providerType, $$value));
+		bind_value(input, () => get$3(apiKey), ($$value) => set$2(apiKey, $$value));
+		bind_value(input_1, () => get$3(transcriptionModel), ($$value) => set$2(transcriptionModel, $$value));
+		bind_value(input_2, () => get$3(processingModel), ($$value) => set$2(processingModel, $$value));
+		bind_select_value(select_1, () => get$3(language), ($$value) => set$2(language, $$value));
+		bind_value(textarea, () => get$3(promptTemplate), ($$value) => set$2(promptTemplate, $$value));
+		append($$anchor, main);
 		pop();
+		$$cleanup();
 	}
 
 	delegate(['click']);
