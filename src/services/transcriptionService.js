@@ -1,38 +1,48 @@
 import {
-  getTranscriptionProvider,
   getProcessingProvider,
+  getTranscriptionProvider,
 } from "../api/index.js";
-import { defaultTemplates } from "../utils/template.js";
+
 import {
-  getSettings,
   updateStatus,
+  getAllSettings,
   updateSettings,
-} from "../store/settings.js";
+} from "./settingsService.js";
+
+import { defaultTemplates } from "../utils/template.js";
 import { formatTranscriptionError } from "../utils/apiErrors.js";
 
 /** @param {Object} settings @returns {Object} */
 function getConfiguredTranscriptionProvider(settings = {}) {
-  const providerType =
-    settings.transcriptionProviderType || settings.providerType || "openai";
+  const allSettings =
+    Object.keys(settings).length > 0 ? settings : getAllSettings();
 
-  const apiKey = settings.transcriptionApiKey || settings.apiKey || "";
+  const providerType =
+    allSettings.transcriptionProviderType ||
+    allSettings.providerType ||
+    "openai";
+
+  const apiKey = allSettings.transcriptionApiKey || allSettings.apiKey || "";
 
   return getTranscriptionProvider(providerType, {
     apiKey,
-    transcriptionModel: settings.transcriptionModel,
+    transcriptionModel: allSettings.transcriptionModel,
   });
 }
 
 /** @param {Object} settings @returns {Object} */
 function getConfiguredProcessingProvider(settings = {}) {
-  const providerType =
-    settings.processingProviderType || settings.providerType || "openai";
+  const allSettings =
+    Object.keys(settings).length > 0 ? settings : getAllSettings();
 
-  const apiKey = settings.processingApiKey || settings.apiKey || "";
+  const providerType =
+    allSettings.processingProviderType || allSettings.providerType || "openai";
+
+  const apiKey = allSettings.processingApiKey || allSettings.apiKey || "";
 
   return getProcessingProvider(providerType, {
     apiKey,
-    processingModel: settings.processingModel,
+    processingModel: allSettings.processingModel,
   });
 }
 
@@ -43,7 +53,7 @@ export async function verifyApiKey(
   providerCategory = "both"
 ) {
   try {
-    const settings = await getSettings();
+    const settings = getAllSettings();
 
     let type;
     if (providerCategory === "transcription") {
@@ -107,7 +117,7 @@ export async function processVoiceMessage(audioBlob) {
   updateStatus({ pendingTranscriptions: true });
 
   try {
-    const settings = await getSettings();
+    const settings = getAllSettings();
 
     const transcriptionProvider = getConfiguredTranscriptionProvider(settings);
     const transcription = await transcriptionProvider.transcribeAudio(

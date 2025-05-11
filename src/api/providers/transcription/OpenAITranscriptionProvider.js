@@ -1,4 +1,5 @@
 import { parseOpenAIError } from "../../../utils/apiErrors.js";
+import { verifyApiKey } from "../../../utils/apiKeyVerifier.js";
 import { createBaseTranscriptionProvider } from "./BaseTranscriptionProvider.js";
 
 /** @param {Object} config @returns {Object} */
@@ -10,29 +11,15 @@ export function createOpenAITranscriptionProvider(config = {}) {
     transcriptionModel: config.transcriptionModel || "whisper-1",
 
     verifyApiKey: async (apiKey) => {
-      if (!apiKey) return { valid: false, error: "API key is empty" };
-      if (!apiKey.startsWith("sk-"))
-        return { valid: false, error: "Invalid API key format" };
-
-      const response = await fetch(`${provider.apiUrl}/v1/models`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
+      return verifyApiKey({
+        apiKey,
+        provider: "openai",
+        apiUrl: provider.apiUrl,
+        customValidation: {
+          formatCheck: (key) => key.startsWith("sk-"),
+          formatErrorMessage: "Invalid API key format",
         },
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        const errorData = parseOpenAIError(errorText, "Invalid API key");
-
-        return {
-          valid: false,
-          error: errorData.message,
-        };
-      }
-
-      return { valid: true };
     },
 
     transcribeAudio: async (audioBlob, options = {}) => {

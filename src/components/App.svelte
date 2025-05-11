@@ -4,7 +4,15 @@
   import TranscriptionModal from "./TranscriptionModal.svelte";
   import { processVoiceMessage } from "../services/transcriptionService.js";
   import { formatTranscriptionError } from "../utils/apiErrors.js";
-  import { transcriptionCache, cacheTranscription } from "../store/settings.js";
+
+  import { initialize } from "../services/settingsService.js";
+
+  let transcriptionCache = $state(new Map());
+  (async () => await initialize())();
+
+  function cacheTranscription(id, data) {
+    transcriptionCache.set(id, data);
+  }
 
   const PLAY_BUTTON_SELECTORS = [
     'span[data-icon="audio-play"]',
@@ -59,13 +67,14 @@
             playBtn,
             transcribe: (detail) => handleTranscribe(detail),
             show: (detail) => showTranscription(detail),
+            transcriptionCache,
           },
         });
 
         buttons.set(bubbleId, component);
 
-        if ($transcriptionCache.has(bubbleId))
-          component.setTranscribed($transcriptionCache.get(bubbleId));
+        if (transcriptionCache.has(bubbleId))
+          component.setTranscribed(transcriptionCache.get(bubbleId));
       });
   }
 
@@ -108,8 +117,8 @@
       component.isError = false;
     }
 
-    if ($transcriptionCache.has(bubbleId)) {
-      const cachedData = $transcriptionCache.get(bubbleId);
+    if (transcriptionCache.has(bubbleId)) {
+      const cachedData = transcriptionCache.get(bubbleId);
 
       if (!cachedData.transcript.startsWith("ERROR:")) {
         modalData = cachedData;

@@ -1,16 +1,17 @@
 <script>
   import {
-    extensionStatus,
-    extensionStatusText,
-    initializeSettings,
-  } from "../store/settings.js";
+    status,
+    statusText,
+    initialize,
+    updateStatus,
+  } from "../services/settingsService.js";
 
   let isEnabled = $state(true);
 
   (async () => {
-    await initializeSettings();
-    extensionStatus.subscribe((status) => {
-      isEnabled = status.isExtensionEnabled;
+    await initialize();
+    status.subscribe((currentStatus) => {
+      isEnabled = currentStatus.isExtensionEnabled;
     });
   })();
 
@@ -23,10 +24,9 @@
 
     if (newStatus !== isEnabled) {
       isEnabled = newStatus;
-      extensionStatus.update((s) => ({
-        ...s,
+      updateStatus({
         isExtensionEnabled: isEnabled,
-      }));
+      });
 
       chrome.runtime.sendMessage({
         action: "settingsUpdated",
@@ -48,26 +48,26 @@
       <span
         class={[
           "flex items-center text-sm",
-          $extensionStatusText.type === "error" && "text-red-500",
-          $extensionStatusText.type === "warning" && "text-yellow-600",
-          $extensionStatusText.type === "success" && "text-green-600",
+          $statusText.type === "error" && "text-red-500",
+          $statusText.type === "warning" && "text-yellow-600",
+          $statusText.type === "success" && "text-green-600",
         ]}
         dir="auto"
       >
         <span
           class={[
             "inline-block w-2.5 h-2.5 rounded-full mr-1.5",
-            $extensionStatusText.type === "error" && "bg-red-500",
-            $extensionStatusText.type === "warning" && "bg-yellow-600",
-            $extensionStatusText.type === "success" && "bg-green-600",
+            $statusText.type === "error" && "bg-red-500",
+            $statusText.type === "warning" && "bg-yellow-600",
+            $statusText.type === "success" && "bg-green-600",
           ]}
           aria-hidden="true"
         ></span>
-        {$extensionStatusText.text}
+        {$statusText.text}
       </span>
     </div>
 
-    {#if $extensionStatus.lastError && $extensionStatus.lastError.includes("API key has reached its usage limit")}
+    {#if $status.lastError && $status.lastError.includes("API key has reached its usage limit")}
       <div
         class={[
           "bg-yellow-50 border border-yellow-200 rounded-md p-2 mb-3 text-xs text-yellow-800",

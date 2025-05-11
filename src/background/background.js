@@ -1,4 +1,7 @@
 import * as storageService from "../services/storageService.js";
+import { initialize, getSetting } from "../services/settingsService.js";
+
+(async () => await initialize())();
 
 function debounce(func, wait) {
   let timeout;
@@ -63,11 +66,13 @@ const messageHandlers = {
 
   /** @returns {Promise<{apiKey: string|null}>} */
   async getApiKey() {
-    const apiKey =
-      (await storageService.get("apiKey", "local")) ||
-      (await storageService.get("apiKey", "sync"));
+    const transcriptionApiKey = getSetting("transcriptionApiKey", "");
+    const processingApiKey = getSetting("processingApiKey", "");
+    const legacyApiKey = getSetting("apiKey", "");
 
-    return { apiKey: apiKey || null };
+    return {
+      apiKey: transcriptionApiKey || processingApiKey || legacyApiKey || null,
+    };
   },
 
   /** @returns {Promise<{success: boolean, warning?: string}>} */
@@ -101,8 +106,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") chrome.runtime.openOptionsPage();
 });
-
-(async () => {
-  const apiKey = await storageService.get("apiKey", "sync");
-  if (apiKey) await storageService.set("apiKey", apiKey, "local");
-})();

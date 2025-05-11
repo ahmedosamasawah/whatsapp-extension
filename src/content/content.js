@@ -1,21 +1,21 @@
 import "../app.css";
 import { mount } from "svelte";
 import App from "../components/App.svelte";
-import { initializeSettings, getSettings } from "../store/settings.js";
+import { initialize, getAllSettings } from "../services/settingsService.js";
 
 async function initApp() {
   const container = document.createElement("div");
   container.id = "whatsapp-transcriber-app";
   document.body.appendChild(container);
 
-  await initializeSettings();
-  let currentSettings = JSON.stringify(getSettings());
+  await initialize();
+  let currentSettings = JSON.stringify(getAllSettings());
 
   mount(App, { target: container });
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message.action === "settingsUpdated") {
-      const latestSettings = JSON.stringify(getSettings());
+      const latestSettings = JSON.stringify(getAllSettings());
 
       if (latestSettings !== currentSettings) {
         currentSettings = latestSettings;

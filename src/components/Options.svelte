@@ -1,12 +1,12 @@
 <script>
   import {
     settings,
+    initialize,
     updateSettings,
-    supportedLanguages,
-    initializeSettings,
-    availableProcessingProviders,
     availableTranscriptionProviders,
-  } from "../store/settings.js";
+    availableProcessingProviders,
+    supportedLanguages,
+  } from "../services/settingsService.js";
 
   import {
     getDefaultProcessingProviderType,
@@ -15,6 +15,10 @@
 
   import { defaultTemplates } from "../utils/template.js";
   import { verifyApiKey as verifyApiKeyService } from "../services/transcriptionService.js";
+
+  // Local state for providers
+  let transcriptionProviders = $state([]);
+  let processingProviders = $state([]);
 
   let processingApiKey = $state("");
   let transcriptionApiKey = $state("");
@@ -81,28 +85,32 @@
     resetPromptTemplate();
   });
 
-  // When transcriptionProviderType changes
   $effect(() => {
-    // Skip the initial setup if settings are empty
     if (!settings || Object.keys(settings).length === 0) return;
 
-    // React to changes in transcription provider
     transcriptionApiKey = "";
     transcriptionVerificationStatus = null;
 
-    // Set default model for selected provider
     const models = getTranscriptionModels();
-    if (models.length > 0) {
-      transcriptionModel = models[0].id;
-    } else {
-      transcriptionModel = "whisper-1";
-    }
+    if (models.length > 0) transcriptionModel = models[0].id;
+    else transcriptionModel = "whisper-1";
   });
 
   (async () => {
-    await initializeSettings();
+    await initialize();
 
-    const unsubscribe = settings.subscribe((value) => {
+    // Subscribe to providers
+    const unsubscribeTranscriptionProviders =
+      availableTranscriptionProviders.subscribe((providers) => {
+        transcriptionProviders = providers;
+      });
+
+    const unsubscribeProcessingProviders =
+      availableProcessingProviders.subscribe((providers) => {
+        processingProviders = providers;
+      });
+
+    const unsubscribeSettings = settings.subscribe((value) => {
       if (Object.keys(value).length === 0) return;
 
       legacyApiKey = value.apiKey || "";
@@ -126,7 +134,11 @@
       isExtensionEnabled = value.isExtensionEnabled !== false;
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeSettings();
+      unsubscribeTranscriptionProviders();
+      unsubscribeProcessingProviders();
+    };
   })();
 
   function resetPromptTemplate() {
@@ -281,7 +293,7 @@
           "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
         ]}
       >
-        {#each $availableTranscriptionProviders as provider}
+        {#each transcriptionProviders as provider}
           <option value={provider.id}>{provider.name}</option>
         {/each}
       </select>
@@ -379,7 +391,7 @@
           "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
         ]}
       >
-        {#each $availableProcessingProviders as provider}
+        {#each processingProviders as provider}
           <option value={provider.id}>{provider.name}</option>
         {/each}
       </select>

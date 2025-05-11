@@ -58,11 +58,65 @@ export function parseOpenAIError(
   }
 }
 
-/**
- * Format error for display in the transcription UI
- * @param {Error|string} error - Error object or message
- * @returns {{transcript: string, cleaned: string, summary: string, reply: string}}
- */
+/** @param {string|Object} errorData @param {string} defaultMessage @returns {Object} */
+export function parseClaudeError(
+  errorData,
+  defaultMessage = "API request failed"
+) {
+  try {
+    const error =
+      typeof errorData === "string" ? JSON.parse(errorData) : errorData;
+
+    if (!error || !error.error) {
+      return {
+        message: defaultMessage,
+        type: "unknown",
+        userMessage:
+          "There was an error processing your request. Please try again.",
+      };
+    }
+
+    const errorType = error.error.type || "";
+
+    if (
+      errorType.includes("authentication") ||
+      errorType.includes("unauthorized")
+    ) {
+      return {
+        message: "Authentication failed. Please check your API key.",
+        type: "authentication",
+        userMessage:
+          "Your API key appears to be invalid. Please check your settings.",
+      };
+    }
+
+    if (errorType.includes("quota") || errorType.includes("rate_limit")) {
+      return {
+        message:
+          "Your Anthropic API key has reached its usage limit. Please check your billing details or use a different API key.",
+        type: "quota_exceeded",
+        userMessage:
+          "Your API key has reached its usage limit. Please check your Anthropic account billing details or update your API key.",
+      };
+    }
+
+    return {
+      message: error.error.message || defaultMessage,
+      type: errorType || "unknown",
+      userMessage:
+        "There was an error processing your request. Please try again.",
+    };
+  } catch (parseError) {
+    return {
+      message: typeof errorData === "string" ? errorData : defaultMessage,
+      type: "unknown",
+      userMessage:
+        "There was an error processing your request. Please try again.",
+    };
+  }
+}
+
+/** @param {Error|string} error @returns {{transcript: string, cleaned: string, summary: string, reply: string}} */
 export function formatTranscriptionError(error) {
   const errorMessage = typeof error === "string" ? error : error.message;
 
