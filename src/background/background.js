@@ -1,4 +1,3 @@
-import { getProvider } from "../api/index.js";
 import * as storageService from "../services/storageService.js";
 
 function debounce(func, wait) {
@@ -52,21 +51,6 @@ const messageHandlers = {
   async openOptionsPage() {
     chrome.runtime.openOptionsPage();
     return { success: true };
-  },
-
-  /** @param {Object} message @returns {Promise<{valid: boolean, error?: string}>} */
-  async verifyApiKey(message) {
-    try {
-      const provider = getProvider(message.providerType || "openai");
-      const result = await provider.verifyApiKey(message.apiKey);
-
-      if (result.valid)
-        await storageService.set("apiKey", message.apiKey, ["local", "sync"]);
-
-      return result;
-    } catch (error) {
-      return { valid: false, error: error.message };
-    }
   },
 
   /** @returns {Promise<{syncStorage: Object, localStorage: Object}>} */

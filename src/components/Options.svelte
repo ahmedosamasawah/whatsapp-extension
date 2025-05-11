@@ -2,25 +2,102 @@
   import {
     settings,
     updateSettings,
-    availableProviders,
     supportedLanguages,
     initializeSettings,
+    availableProcessingProviders,
+    availableTranscriptionProviders,
   } from "../store/settings.js";
+
+  import {
+    getDefaultProcessingProviderType,
+    getDefaultTranscriptionProviderType,
+  } from "../api/index.js";
+
   import { defaultTemplates } from "../utils/template.js";
-  import { getDefaultProviderType } from "../api/index.js";
   import { verifyApiKey as verifyApiKeyService } from "../services/transcriptionService.js";
 
-  let apiKey = $state("");
+  let processingApiKey = $state("");
+  let transcriptionApiKey = $state("");
+
+  let legacyApiKey = $state("");
+
   let language = $state("auto");
   let promptTemplate = $state("");
   let isExtensionEnabled = $state(true);
   let processingModel = $state("gpt-4o");
   let transcriptionModel = $state("whisper-1");
-  let providerType = $state(getDefaultProviderType());
+  let processingProviderType = $state(getDefaultProcessingProviderType());
+  let transcriptionProviderType = $state(getDefaultTranscriptionProviderType());
 
-  let isVerifying = $state(false);
   let settingsSaved = $state(null);
-  let verificationStatus = $state(null);
+  let isVerifyingProcessing = $state(false);
+  let isVerifyingTranscription = $state(false);
+  let processingVerificationStatus = $state(null);
+  let transcriptionVerificationStatus = $state(null);
+
+  const providerModels = $state({
+    openai: {
+      processing: [
+        { id: "gpt-4.1", name: "GPT-4.1" },
+        { id: "gpt-4o", name: "GPT-4o" },
+        { id: "gpt-4o-mini", name: "GPT-4o-mini" },
+      ],
+      transcription: [
+        { id: "whisper-1", name: "Whisper-1" },
+        { id: "gpt-4o-transcribe", name: "GPT-4o Transcribe" },
+      ],
+    },
+    claude: {
+      processing: [
+        {
+          id: "claude-3-7-sonnet-20250219",
+          name: "Claude 3.7 Sonnet (Recommended)",
+        },
+        { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
+        { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku (Fastest)" },
+      ],
+      transcription: [],
+    },
+  });
+
+  function getProcessingModels() {
+    return providerModels[processingProviderType]?.processing || [];
+  }
+
+  function getTranscriptionModels() {
+    return providerModels[transcriptionProviderType]?.transcription || [];
+  }
+
+  $effect(() => {
+    if (!settings || Object.keys(settings).length === 0) return;
+
+    processingApiKey = "";
+    processingVerificationStatus = null;
+
+    const models = getProcessingModels();
+    if (models.length > 0) processingModel = models[0].id;
+    else processingModel = "";
+
+    resetPromptTemplate();
+  });
+
+  // When transcriptionProviderType changes
+  $effect(() => {
+    // Skip the initial setup if settings are empty
+    if (!settings || Object.keys(settings).length === 0) return;
+
+    // React to changes in transcription provider
+    transcriptionApiKey = "";
+    transcriptionVerificationStatus = null;
+
+    // Set default model for selected provider
+    const models = getTranscriptionModels();
+    if (models.length > 0) {
+      transcriptionModel = models[0].id;
+    } else {
+      transcriptionModel = "whisper-1";
+    }
+  });
 
   (async () => {
     await initializeSettings();
@@ -28,12 +105,24 @@
     const unsubscribe = settings.subscribe((value) => {
       if (Object.keys(value).length === 0) return;
 
-      apiKey = value.apiKey || "";
-      providerType = value.providerType || getDefaultProviderType();
+      legacyApiKey = value.apiKey || "";
+
+      processingApiKey = value.processingApiKey || value.apiKey || "";
+      transcriptionApiKey = value.transcriptionApiKey || value.apiKey || "";
+
+      transcriptionProviderType =
+        value.transcriptionProviderType ||
+        getDefaultTranscriptionProviderType();
+
+      processingProviderType =
+        value.processingProviderType || getDefaultProcessingProviderType();
+
       language = value.language || "auto";
-      transcriptionModel = value.transcriptionModel || "whisper-1";
-      processingModel = value.processingModel || "gpt-4o";
+
       promptTemplate = value.promptTemplate || "";
+      processingModel = value.processingModel || "gpt-4o";
+      transcriptionModel = value.transcriptionModel || "whisper-1";
+
       isExtensionEnabled = value.isExtensionEnabled !== false;
     });
 
@@ -42,53 +131,105 @@
 
   function resetPromptTemplate() {
     promptTemplate =
-      defaultTemplates[providerType]?.processing ||
+      defaultTemplates[processingProviderType]?.processing ||
       defaultTemplates.openai.processing;
   }
 
-  async function verifyApiKey() {
-    if (!apiKey) {
-      verificationStatus = { valid: false, message: "API key cannot be empty" };
+  async function verifyTranscriptionApiKey() {
+    if (!transcriptionApiKey) {
+      transcriptionVerificationStatus = {
+        valid: false,
+        message: "API key cannot be empty",
+      };
       return;
     }
 
-    isVerifying = true;
-    verificationStatus = null;
+    isVerifyingTranscription = true;
+    transcriptionVerificationStatus = null;
 
     try {
-      const result = await verifyApiKeyService(apiKey, providerType);
+      const result = await verifyApiKeyService(
+        transcriptionApiKey,
+        transcriptionProviderType,
+        "transcription"
+      );
 
       if (result.valid) {
-        verificationStatus = {
+        transcriptionVerificationStatus = {
           valid: true,
           message: "API key verified successfully!",
         };
 
-        updateSettings({ apiKey });
+        updateSettings({ transcriptionApiKey });
       } else {
-        verificationStatus = {
+        transcriptionVerificationStatus = {
           valid: false,
           message: result.error || "Invalid API key",
         };
       }
     } catch (error) {
-      verificationStatus = {
+      transcriptionVerificationStatus = {
         valid: false,
         message: error.message || "Error verifying API key",
       };
     } finally {
-      isVerifying = false;
+      isVerifyingTranscription = false;
+    }
+  }
+
+  async function verifyProcessingApiKey() {
+    if (!processingApiKey) {
+      processingVerificationStatus = {
+        valid: false,
+        message: "API key cannot be empty",
+      };
+      return;
+    }
+
+    isVerifyingProcessing = true;
+    processingVerificationStatus = null;
+
+    try {
+      const result = await verifyApiKeyService(
+        processingApiKey,
+        processingProviderType,
+        "processing"
+      );
+
+      if (result.valid) {
+        processingVerificationStatus = {
+          valid: true,
+          message: "API key verified successfully!",
+        };
+
+        updateSettings({ processingApiKey });
+      } else {
+        processingVerificationStatus = {
+          valid: false,
+          message: result.error || "Invalid API key",
+        };
+      }
+    } catch (error) {
+      processingVerificationStatus = {
+        valid: false,
+        message: error.message || "Error verifying API key",
+      };
+    } finally {
+      isVerifyingProcessing = false;
     }
   }
 
   function saveSettings() {
     updateSettings({
-      providerType,
+      transcriptionProviderType,
+      processingProviderType,
+      transcriptionApiKey,
       transcriptionModel,
-      processingModel,
-      language,
-      promptTemplate,
       isExtensionEnabled,
+      processingApiKey,
+      processingModel,
+      promptTemplate,
+      language,
     });
 
     settingsSaved = {
@@ -106,7 +247,7 @@
       WhatsApp AI Transcriber Settings
     </h1>
     <p class={["text-gray-600"]}>
-      Configure your WhatsApp transcription settings and AI provider.
+      Configure your WhatsApp transcription settings and AI providers.
     </p>
   </header>
 
@@ -115,74 +256,82 @@
       API Configuration
     </h2>
 
+    <p class={["mb-4 text-sm text-gray-600"]}>
+      Configure separate API keys for each provider or use the same key for
+      both.
+    </p>
+  </section>
+
+  <section class={["mb-8 p-6 bg-white rounded-lg shadow-md"]}>
+    <h2 class={["text-xl font-semibold mb-4 text-gray-800"]}>
+      Transcription Provider
+    </h2>
+
     <div class={["mb-4"]}>
       <label
-        for="provider"
+        for="transcriptionProvider"
         class={["block text-sm font-medium text-gray-700 mb-1"]}
       >
-        AI Provider
+        Transcription Provider
       </label>
       <select
-        id="provider"
-        bind:value={providerType}
+        id="transcriptionProvider"
+        bind:value={transcriptionProviderType}
         class={[
           "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
         ]}
       >
-        {#each $availableProviders as provider}
+        {#each $availableTranscriptionProviders as provider}
           <option value={provider.id}>{provider.name}</option>
         {/each}
       </select>
+      <p class={["mt-1 text-xs text-gray-500"]}>
+        Provider used for converting voice messages to text.
+      </p>
     </div>
 
     <div class={["mb-4"]}>
       <label
-        for="apiKey"
+        for="transcriptionApiKey"
         class={["block text-sm font-medium text-gray-700 mb-1"]}
       >
-        API Key
+        Transcription API Key
       </label>
       <div class={["flex"]}>
         <input
-          id="apiKey"
+          id="transcriptionApiKey"
           type="password"
-          placeholder="Enter your API key"
-          bind:value={apiKey}
+          placeholder={`Enter ${transcriptionProviderType} API key`}
+          bind:value={transcriptionApiKey}
           class={[
             "flex-1 p-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
           ]}
         />
         <button
-          onclick={verifyApiKey}
-          disabled={isVerifying}
+          onclick={verifyTranscriptionApiKey}
+          disabled={isVerifyingTranscription}
           class={[
             "bg-[#00a884] text-white px-4 py-2 rounded-r-md hover:bg-[#008f72] focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:ring-offset-2 disabled:opacity-50",
           ]}
           type="button"
         >
-          {isVerifying ? "Verifying..." : "Verify"}
+          {isVerifyingTranscription ? "Verifying..." : "Verify"}
         </button>
       </div>
 
-      {#if verificationStatus}
+      {#if transcriptionVerificationStatus}
         <p
           class={[
             "mt-2 text-sm break-words max-w-full overflow-hidden",
-            verificationStatus.valid ? "text-green-600" : "text-red-600",
+            transcriptionVerificationStatus.valid
+              ? "text-green-600"
+              : "text-red-600",
           ]}
         >
-          {verificationStatus.message}
+          {transcriptionVerificationStatus.message}
         </p>
       {/if}
-
-      <p class={["mt-2 text-xs text-gray-500"]}>
-        Your API key is stored locally and used only for transcription requests.
-      </p>
     </div>
-  </section>
-
-  <section class={["mb-8 p-6 bg-white rounded-lg shadow-md"]}>
-    <h2 class={["text-xl font-semibold mb-4 text-gray-800"]}>Model Settings</h2>
 
     <div class={["mb-4"]}>
       <label
@@ -191,14 +340,95 @@
       >
         Transcription Model
       </label>
-      <input
+      <select
         id="transcriptionModel"
-        type="text"
         bind:value={transcriptionModel}
         class={[
           "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
         ]}
-      />
+      >
+        {#each getTranscriptionModels() as model}
+          <option value={model.id}>{model.name}</option>
+        {/each}
+        {#if getTranscriptionModels().length === 0}
+          <option value="whisper-1">Whisper-1</option>
+        {/if}
+      </select>
+      <p class={["mt-1 text-xs text-gray-500"]}>
+        The specific model used for audio transcription (e.g., whisper-1).
+      </p>
+    </div>
+  </section>
+
+  <section class={["mb-8 p-6 bg-white rounded-lg shadow-md"]}>
+    <h2 class={["text-xl font-semibold mb-4 text-gray-800"]}>
+      Processing Provider
+    </h2>
+
+    <div class={["mb-4"]}>
+      <label
+        for="processingProvider"
+        class={["block text-sm font-medium text-gray-700 mb-1"]}
+      >
+        Processing Provider
+      </label>
+      <select
+        id="processingProvider"
+        bind:value={processingProviderType}
+        class={[
+          "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
+        ]}
+      >
+        {#each $availableProcessingProviders as provider}
+          <option value={provider.id}>{provider.name}</option>
+        {/each}
+      </select>
+      <p class={["mt-1 text-xs text-gray-500"]}>
+        Provider used for cleaning, summarizing and generating replies.
+      </p>
+    </div>
+
+    <div class={["mb-4"]}>
+      <label
+        for="processingApiKey"
+        class={["block text-sm font-medium text-gray-700 mb-1"]}
+      >
+        Processing API Key
+      </label>
+      <div class={["flex"]}>
+        <input
+          id="processingApiKey"
+          type="password"
+          placeholder={`Enter ${processingProviderType} API key`}
+          bind:value={processingApiKey}
+          class={[
+            "flex-1 p-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
+          ]}
+        />
+        <button
+          onclick={verifyProcessingApiKey}
+          disabled={isVerifyingProcessing}
+          class={[
+            "bg-[#00a884] text-white px-4 py-2 rounded-r-md hover:bg-[#008f72] focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:ring-offset-2 disabled:opacity-50",
+          ]}
+          type="button"
+        >
+          {isVerifyingProcessing ? "Verifying..." : "Verify"}
+        </button>
+      </div>
+
+      {#if processingVerificationStatus}
+        <p
+          class={[
+            "mt-2 text-sm break-words max-w-full overflow-hidden",
+            processingVerificationStatus.valid
+              ? "text-green-600"
+              : "text-red-600",
+          ]}
+        >
+          {processingVerificationStatus.message}
+        </p>
+      {/if}
     </div>
 
     <div class={["mb-4"]}>
@@ -208,20 +438,58 @@
       >
         Processing Model
       </label>
-      <input
+      <select
         id="processingModel"
-        type="text"
         bind:value={processingModel}
         class={[
           "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
         ]}
-      />
+      >
+        {#each getProcessingModels() as model}
+          <option value={model.id}>{model.name}</option>
+        {/each}
+      </select>
+      <p class={["mt-1 text-xs text-gray-500"]}>
+        The specific model used for text processing (depends on selected
+        provider).
+      </p>
+    </div>
+
+    <div class={["mb-4"]}>
+      <div class={["flex justify-between items-center mb-1"]}>
+        <label
+          for="promptTemplate"
+          class={["block text-sm font-medium text-gray-700"]}
+        >
+          Prompt Template
+        </label>
+        <button
+          onclick={resetPromptTemplate}
+          class={["text-xs text-[#00a884] hover:text-[#008f72] underline"]}
+          type="button"
+        >
+          Reset to default
+        </button>
+      </div>
+      <textarea
+        id="promptTemplate"
+        bind:value={promptTemplate}
+        rows="8"
+        class={[
+          "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884] font-mono text-sm",
+        ]}
+        placeholder="Enter your custom prompt template"
+      ></textarea>
+      <p class={["mt-1 text-xs text-gray-500"]}>
+        Customize how the AI processes your transcriptions. Use double curly
+        braces around "transcription" and "language" to use them as variables.
+      </p>
     </div>
   </section>
 
   <section class={["mb-8 p-6 bg-white rounded-lg shadow-md"]}>
     <h2 class={["text-xl font-semibold mb-4 text-gray-800"]}>
-      Transcription Settings
+      General Settings
     </h2>
 
     <div class={["mb-4"]}>
@@ -279,37 +547,6 @@
       </div>
       <p class={["mt-1 text-xs text-gray-500"]}>
         Turn the extension on or off without uninstalling.
-      </p>
-    </div>
-
-    <div class={["mb-4"]}>
-      <div class={["flex justify-between items-center mb-1"]}>
-        <label
-          for="promptTemplate"
-          class={["block text-sm font-medium text-gray-700"]}
-        >
-          Prompt Template
-        </label>
-        <button
-          onclick={resetPromptTemplate}
-          class={["text-xs text-[#00a884] hover:text-[#008f72] underline"]}
-          type="button"
-        >
-          Reset to default
-        </button>
-      </div>
-      <textarea
-        id="promptTemplate"
-        bind:value={promptTemplate}
-        rows="8"
-        class={[
-          "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884] font-mono text-sm",
-        ]}
-        placeholder="Enter your custom prompt template"
-      ></textarea>
-      <p class={["mt-1 text-xs text-gray-500"]}>
-        Customize how the AI processes your transcriptions. Use double curly
-        braces around "transcription" and "language" to use them as variables.
       </p>
     </div>
   </section>
