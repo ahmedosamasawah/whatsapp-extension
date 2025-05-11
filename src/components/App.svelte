@@ -5,14 +5,15 @@
   import { processVoiceMessage } from "../services/transcriptionService.js";
   import { formatTranscriptionError } from "../utils/apiErrors.js";
 
-  import { initialize } from "../services/settingsService.js";
+  import {
+    initialize,
+    transcriptionCache,
+    cacheTranscription,
+    hasTranscription,
+    getTranscription,
+  } from "../services/settingsService.js";
 
-  let transcriptionCache = $state(new Map());
   (async () => await initialize())();
-
-  function cacheTranscription(id, data) {
-    transcriptionCache.set(id, data);
-  }
 
   const PLAY_BUTTON_SELECTORS = [
     'span[data-icon="audio-play"]',
@@ -67,14 +68,13 @@
             playBtn,
             transcribe: (detail) => handleTranscribe(detail),
             show: (detail) => showTranscription(detail),
-            transcriptionCache,
           },
         });
 
         buttons.set(bubbleId, component);
 
-        if (transcriptionCache.has(bubbleId))
-          component.setTranscribed(transcriptionCache.get(bubbleId));
+        if ($transcriptionCache.has(bubbleId))
+          component.setTranscribed($transcriptionCache.get(bubbleId));
       });
   }
 
@@ -117,8 +117,8 @@
       component.isError = false;
     }
 
-    if (transcriptionCache.has(bubbleId)) {
-      const cachedData = transcriptionCache.get(bubbleId);
+    if ($transcriptionCache.has(bubbleId)) {
+      const cachedData = $transcriptionCache.get(bubbleId);
 
       if (!cachedData.transcript.startsWith("ERROR:")) {
         modalData = cachedData;
@@ -159,7 +159,7 @@
         const component = buttons.get(currentBubbleId);
         if (component) component.setError();
 
-        cacheTranscription(currentBubbleId, result);
+        await cacheTranscription(currentBubbleId, result);
         return;
       }
 
@@ -169,7 +169,7 @@
       const component = buttons.get(currentBubbleId);
       if (component) component.setTranscribed(result);
 
-      cacheTranscription(currentBubbleId, result);
+      await cacheTranscription(currentBubbleId, result);
     } catch (error) {
       console.error("Error processing audio:", error); // TODO: Remove
       modalData = formatTranscriptionError(error);
@@ -178,7 +178,7 @@
       const component = buttons.get(currentBubbleId);
       if (component) component.setError();
 
-      cacheTranscription(currentBubbleId, modalData);
+      await cacheTranscription(currentBubbleId, modalData);
     }
   }
 

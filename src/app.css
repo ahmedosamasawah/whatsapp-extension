@@ -43,3 +43,5 @@
   all: revert;
   box-sizing: inherit;
 }
+
+@import "./styles/animations.css";

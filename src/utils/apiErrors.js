@@ -1,67 +1,8 @@
-/** @param {string} errorText @param {string} defaultMessage @returns {Object} */
-export function parseOpenAIError(
-  errorText,
-  defaultMessage = "API request failed"
-) {
-  try {
-    const errorData = JSON.parse(errorText);
-
-    if (!errorData.error)
-      return {
-        message: defaultMessage,
-        type: "unknown",
-        userMessage:
-          "There was an error processing your request. Please try again.",
-      };
-
-    switch (errorData.error.type) {
-      case "insufficient_quota":
-        return {
-          message:
-            "Your OpenAI API key has reached its usage limit. Please check your billing details or use a different API key.",
-          type: "quota_exceeded",
-          userMessage:
-            "Your API key has reached its usage limit. Please check your OpenAI account billing details or update your API key.",
-        };
-
-      case "invalid_request_error":
-        return {
-          message: errorData.error.message || "Invalid request to the API",
-          type: "invalid_request",
-          userMessage:
-            "There was a problem with the request. Please check your settings.",
-        };
-
-      case "authentication_error":
-        return {
-          message: "Authentication failed. Please check your API key.",
-          type: "authentication",
-          userMessage:
-            "Your API key appears to be invalid. Please check your settings.",
-        };
-
-      default:
-        return {
-          message: errorData.error.message || defaultMessage,
-          type: errorData.error.type || "unknown",
-          userMessage:
-            "There was an error processing your request. Please try again.",
-        };
-    }
-  } catch (parseError) {
-    return {
-      message: errorText || defaultMessage,
-      type: "unknown",
-      userMessage:
-        "There was an error processing your request. Please try again.",
-    };
-  }
-}
-
-/** @param {string|Object} errorData @param {string} defaultMessage @returns {Object} */
-export function parseClaudeError(
+/** @param {string|Object} errorData @param {string} defaultMessage @param {Object} options @returns {Object} */
+function baseErrorParser(
   errorData,
-  defaultMessage = "API request failed"
+  defaultMessage = "API request failed",
+  options = {}
 ) {
   try {
     const error =
@@ -76,12 +17,10 @@ export function parseClaudeError(
       };
     }
 
-    const errorType = error.error.type || "";
+    const errorType = options.getErrorType(error);
+    const errorMessage = options.getErrorMessage(error);
 
-    if (
-      errorType.includes("authentication") ||
-      errorType.includes("unauthorized")
-    ) {
+    if (options.isAuthError(error, errorType)) {
       return {
         message: "Authentication failed. Please check your API key.",
         type: "authentication",
@@ -90,18 +29,28 @@ export function parseClaudeError(
       };
     }
 
-    if (errorType.includes("quota") || errorType.includes("rate_limit")) {
+    if (options.isQuotaError(error, errorType)) {
       return {
-        message:
-          "Your Anthropic API key has reached its usage limit. Please check your billing details or use a different API key.",
+        message: `Your ${options.providerName} API key has reached its usage limit. Please check your billing details or use a different API key.`,
         type: "quota_exceeded",
+        userMessage: `Your API key has reached its usage limit. Please check your ${options.providerName} account billing details or update your API key.`,
+      };
+    }
+
+    if (
+      options.isInvalidRequest &&
+      options.isInvalidRequest(error, errorType)
+    ) {
+      return {
+        message: errorMessage || "Invalid request to the API",
+        type: "invalid_request",
         userMessage:
-          "Your API key has reached its usage limit. Please check your Anthropic account billing details or update your API key.",
+          "There was a problem with the request. Please check your settings.",
       };
     }
 
     return {
-      message: error.error.message || defaultMessage,
+      message: errorMessage || defaultMessage,
       type: errorType || "unknown",
       userMessage:
         "There was an error processing your request. Please try again.",
@@ -114,6 +63,43 @@ export function parseClaudeError(
         "There was an error processing your request. Please try again.",
     };
   }
+}
+
+/** @param {string} errorText @param {string} defaultMessage @returns {Object} */
+export function parseOpenAIError(
+  errorText,
+  defaultMessage = "API request failed"
+) {
+  return baseErrorParser(errorText, defaultMessage, {
+    providerName: "OpenAI",
+    getErrorType: (error) => error.error?.type || "",
+    getErrorMessage: (error) => error.error?.message || defaultMessage,
+    isAuthError: (error, errorType) => errorType === "authentication_error",
+    isQuotaError: (error, errorType) => errorType === "insufficient_quota",
+    isInvalidRequest: (error, errorType) =>
+      errorType === "invalid_request_error",
+  });
+}
+
+/** @param {string|Object} errorData @param {string} defaultMessage @returns {Object} */
+export function parseClaudeError(
+  errorData,
+  defaultMessage = "API request failed"
+) {
+  return baseErrorParser(errorData, defaultMessage, {
+    providerName: "Anthropic",
+    getErrorType: (error) => error.error?.type || "",
+    getErrorMessage: (error) => error.error?.message || defaultMessage,
+    isAuthError: (error, errorType) => {
+      return (
+        errorType.includes("authentication") ||
+        errorType.includes("unauthorized")
+      );
+    },
+    isQuotaError: (error, errorType) => {
+      return errorType.includes("quota") || errorType.includes("rate_limit");
+    },
+  });
 }
 
 /** @param {Error|string} error @returns {{transcript: string, cleaned: string, summary: string, reply: string}} */

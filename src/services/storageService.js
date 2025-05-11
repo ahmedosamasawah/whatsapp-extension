@@ -62,19 +62,3 @@ export async function remove(key, storageType = "local") {
   await Promise.all(promises);
   return true;
 }
-
-/** @param {string} id @param {Object} transcriptionData @returns {Promise<boolean>} */
-export async function saveTranscription(id, transcriptionData) {
-  const storedData = (await get("wa-transcriptions", "indexedDB")) || {};
-  storedData[id] = transcriptionData;
-
-  await set("wa-transcriptions", storedData, "indexedDB");
-
-  return true;
-}
-
-/** @returns {Promise<Map<string, Object>>} */
-export async function getTranscriptions() {
-  const storedData = (await get("wa-transcriptions", "indexedDB")) || {};
-  return new Map(Object.entries(storedData));
-}

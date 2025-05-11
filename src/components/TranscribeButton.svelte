@@ -1,4 +1,5 @@
 <script>
+  import { transcriptionCache } from "../services/settingsService.js";
   import { FileAudio, Check, Loader, AlertTriangle } from "@lucide/svelte";
 
   const {
@@ -6,7 +7,6 @@
     bubbleId,
     show = undefined,
     transcribe = undefined,
-    transcriptionCache = undefined,
   } = $props();
 
   let isError = $state(false);
@@ -16,8 +16,8 @@
   let iconSize = 18;
 
   $effect(() => {
-    if (bubbleId && transcriptionCache && transcriptionCache.has(bubbleId)) {
-      const data = transcriptionCache.get(bubbleId);
+    if (bubbleId && $transcriptionCache.has(bubbleId)) {
+      const data = $transcriptionCache.get(bubbleId);
       const hasError = data.transcript.startsWith("ERROR:");
       isTranscribed = !hasError;
       isError = hasError;
@@ -28,7 +28,7 @@
     if (isLoading) return;
 
     if (isTranscribed) {
-      const data = transcriptionCache.get(bubbleId);
+      const data = $transcriptionCache.get(bubbleId);
       if (data && show) show({ data, bubbleId });
       return;
     }
@@ -42,9 +42,6 @@
   export function setTranscribed(data) {
     isLoading = false;
     isTranscribed = true;
-
-    if (bubbleId && data && transcriptionCache)
-      transcriptionCache.set(bubbleId, data);
   }
 
   export function setError() {
@@ -134,18 +131,5 @@
 
   .transcribe-button.error {
     background-color: rgba(244, 67, 54, 0.85);
-  }
-
-  :global(.animate-spin) {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
   }
 </style>

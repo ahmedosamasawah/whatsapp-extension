@@ -65,6 +65,8 @@ const status = writable({
   lastError: null,
 });
 
+export const transcriptionCache = writable(new Map());
+
 let initializationPromise = null;
 
 /** @returns {Promise<void>} */
@@ -73,6 +75,10 @@ export function initialize() {
 
   initializationPromise = (async () => {
     try {
+      const storedTranscriptions =
+        (await storageService.get("wa-transcriptions", "indexedDB")) || {};
+      transcriptionCache.set(new Map(Object.entries(storedTranscriptions)));
+
       const storedSettings = await storageService.getAll("sync");
 
       const legacyApiKey =
@@ -274,6 +280,17 @@ function setupSettingsPersistence() {
       }
     }
   });
+
+  transcriptionCache.subscribe(async (cache) => {
+    if (cache.size > 0) {
+      const transcriptionObj = Object.fromEntries(cache);
+      await storageService.set(
+        "wa-transcriptions",
+        transcriptionObj,
+        "indexedDB"
+      );
+    }
+  });
 }
 
 export const statusText = derived(status, ($status) => {
@@ -291,3 +308,23 @@ export const statusText = derived(status, ($status) => {
 
 export { settings, status };
 export { DEFAULT_SETTINGS };
+
+/** @param {string} id @param {Object} data @returns {Promise<void>} */
+export async function cacheTranscription(id, data) {
+  transcriptionCache.update((cache) => {
+    cache.set(id, data);
+    return cache;
+  });
+}
+
+/** @param {string} id @returns {Object|undefined} */
+export function getTranscription(id) {
+  const cache = get(transcriptionCache);
+  return cache.get(id);
+}
+
+/** @param {string} id @returns {boolean} */
+export function hasTranscription(id) {
+  const cache = get(transcriptionCache);
+  return cache.has(id);
+}
