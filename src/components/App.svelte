@@ -9,8 +9,6 @@
     initialize,
     transcriptionCache,
     cacheTranscription,
-    hasTranscription,
-    getTranscription,
   } from "../services/settingsService.js";
 
   (async () => await initialize())();

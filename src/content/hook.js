@@ -16,7 +16,6 @@
     return url;
   };
 
-  /** @param {string} url */
   function processAndSendAudio(url) {
     const record = audioMap.get(url);
     if (!record || record.sent) return;
@@ -35,8 +34,7 @@
       );
     });
   }
-
-  /** @param {Object} obj */
+  
   function patchSrcSetter(obj) {
     const descriptor =
       Object.getOwnPropertyDescriptor(obj, "src") ||

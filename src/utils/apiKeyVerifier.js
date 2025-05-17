@@ -1,40 +1,30 @@
 import { parseOpenAIError, parseClaudeError } from "./apiErrors.js";
 
-/**
- * @param {Object} options
- * @param {string} options.apiKey
- * @param {string} options.provider
- * @param {string} options.apiUrl
- * @param {string} [options.model]
- * @param {Object} [options.customValidation]
- * @returns {Promise<{valid: boolean, error?: string}>}
- */
 export async function verifyApiKey(options) {
-  const { apiKey, provider, apiUrl, model, customValidation } = options;
+  const { apiKey, providerType, apiUrl, model, customValidation } = options;
 
   if (!apiKey) return { valid: false, error: "API key is empty" };
 
-  if (customValidation?.formatCheck && !customValidation.formatCheck(apiKey)) {
+  if (customValidation?.formatCheck && !customValidation.formatCheck(apiKey))
     return {
       valid: false,
       error: customValidation.formatErrorMessage || "Invalid API key format",
     };
-  }
 
   try {
-    if (provider === "openai") return await verifyOpenAIKey(apiKey, apiUrl);
-    else if (provider === "claude")
+    if (providerType === "openai") return await verifyOpenAIKey(apiKey, apiUrl);
+    else if (providerType === "claude") {
+      console.log("Verifying Claude key", apiKey, "\n", apiUrl, "\n");
       return await verifyClaudeKey(apiKey, apiUrl, model);
-    else throw new Error(`Unsupported provider: ${provider}`);
+    }
   } catch (error) {
     return {
       valid: false,
-      error: error.message || `Error validating ${provider} API key`,
+      error: error.message || `Error validating ${providerType} API key`,
     };
   }
 }
 
-/** @param {string} apiKey @param {string} apiUrl @returns {Promise<{valid: boolean, error?: string}>} */
 async function verifyOpenAIKey(apiKey, apiUrl) {
   const response = await fetch(`${apiUrl}/v1/models`, {
     method: "GET",
@@ -56,7 +46,6 @@ async function verifyOpenAIKey(apiKey, apiUrl) {
   return { valid: true };
 }
 
-/** @param {string} apiKey @param {string} apiUrl @param {string} model @returns {Promise<{valid: boolean, error?: string}>} */
 async function verifyClaudeKey(apiKey, apiUrl, model) {
   const response = await fetch(`${apiUrl}/v1/messages`, {
     method: "POST",

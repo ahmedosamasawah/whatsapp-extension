@@ -16,47 +16,36 @@ function debounce(func, wait) {
 }
 
 const notifyWhatsappTabs = debounce(async () => {
-  try {
-    const tabs = await chrome.tabs.query({
-      url: "https://web.whatsapp.com/*",
-    });
+  const tabs = await chrome.tabs.query({
+    url: "https://web.whatsapp.com/*",
+  });
 
-    if (tabs && tabs.length > 0) {
-      const messagePromises = tabs.map(
-        (tab) =>
-          new Promise((resolve) => {
-            chrome.tabs.sendMessage(
-              tab.id,
-              { action: "settingsUpdated" },
-              () => {
-                const lastError = chrome.runtime.lastError;
-                if (lastError)
-                  console.log(
-                    `Error sending message to tab ${tab.id}: ${lastError.message}`
-                  ); // TODO: Remove
+  if (tabs && tabs.length > 0) {
+    const messagePromises = tabs.map(
+      (tab) =>
+        new Promise((resolve) => {
+          chrome.tabs.sendMessage(tab.id, { action: "settingsUpdated" }, () => {
+            const lastError = chrome.runtime.lastError;
+            if (lastError)
+              console.log(
+                `Error sending message to tab ${tab.id}: ${lastError.message}`
+              ); // TODO: Remove
 
-                resolve();
-              }
-            );
-          })
-      );
+            resolve();
+          });
+        })
+    );
 
-      await Promise.all(messagePromises);
-    }
-  } catch (error) {
-    console.error("Error notifying WhatsApp tabs:", error); // TODO: Remove
+    await Promise.all(messagePromises);
   }
 }, 500);
 
-/** @type {Object.<string, Function>} */
 const messageHandlers = {
-  /** @returns {Promise<{success: boolean}>} */
   async openOptionsPage() {
     chrome.runtime.openOptionsPage();
     return { success: true };
   },
 
-  /** @returns {Promise<{syncStorage: Object, localStorage: Object}>} */
   async checkStorage() {
     const syncStorage = await storageService.getAll("sync");
     const localStorage = await storageService.getAll("local");
@@ -64,24 +53,20 @@ const messageHandlers = {
     return { syncStorage, localStorage };
   },
 
-  /** @returns {Promise<{apiKey: string|null}>} */
   async getApiKey() {
     const transcriptionApiKey = getSetting("transcriptionApiKey", "");
     const processingApiKey = getSetting("processingApiKey", "");
-    const legacyApiKey = getSetting("apiKey", "");
 
     return {
-      apiKey: transcriptionApiKey || processingApiKey || legacyApiKey || null,
+      apiKey: transcriptionApiKey || processingApiKey || null,
     };
   },
 
-  /** @returns {Promise<{success: boolean, warning?: string}>} */
   async settingsUpdated() {
     try {
       notifyWhatsappTabs();
       return { success: true };
     } catch (error) {
-      console.error("Error in settingsUpdated:", error); // TODO: Remove
       return { success: true, warning: "Error notifying tabs" };
     }
   },
@@ -96,7 +81,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handler(message, sender)
     .then(sendResponse)
     .catch((error) => {
-      console.error(`Error handling ${message.action}:`, error); // TODO: Remove
       sendResponse({ error: error.message });
     });
 

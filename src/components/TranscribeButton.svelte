@@ -24,7 +24,7 @@
     }
   });
 
-  function handleClick() {
+  const handleClick = () => {
     if (isLoading) return;
 
     if (isTranscribed) {
@@ -36,28 +36,30 @@
     isLoading = true;
     isError = false;
     if (transcribe) transcribe({ bubbleId, playBtn });
-  }
+  };
 
-  /** @param {Object} data */
-  export function setTranscribed(data) {
+  export const setTranscribed = (data) => {
     isLoading = false;
     isTranscribed = true;
-  }
+  };
 
-  export function setError() {
+  export const setError = () => {
     isLoading = false;
     isTranscribed = false;
     isError = true;
-  }
-</script>
+  };
 
-<button
-  class={[
+  const getButtonClasses = () => [
     "transcribe-button",
     isTranscribed && "transcribed",
     isLoading && "loading",
     isError && "error",
-  ]}
+  ];
+
+</script>
+
+<button
+  class={getButtonClasses()}
   onclick={handleClick}
   aria-label="Transcribe voice message"
   type="button"

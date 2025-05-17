@@ -1,4 +1,11 @@
-/** @param {string|Object} errorData @param {string} defaultMessage @param {Object} options @returns {Object} */
+const errorTypes = {
+  auth: (type) =>
+    ["authentication_error", "unauthorized"].some((t) => type.includes(t)),
+  quota: (type) =>
+    ["insufficient_quota", "quota", "rate_limit"].some((t) => type.includes(t)),
+  invalidRequest: (type) => ["invalid_request_error"].includes(type),
+};
+
 function baseErrorParser(
   errorData,
   defaultMessage = "API request failed",
@@ -17,10 +24,10 @@ function baseErrorParser(
       };
     }
 
-    const errorType = options.getErrorType(error);
-    const errorMessage = options.getErrorMessage(error);
+    const errorType = options.getErrorType(error) || "unknown";
+    const errorMessage = options.getErrorMessage(error) || defaultMessage;
 
-    if (options.isAuthError(error, errorType)) {
+    if (errorTypes.auth(errorType)) {
       return {
         message: "Authentication failed. Please check your API key.",
         type: "authentication",
@@ -29,7 +36,7 @@ function baseErrorParser(
       };
     }
 
-    if (options.isQuotaError(error, errorType)) {
+    if (errorTypes.quota(errorType)) {
       return {
         message: `Your ${options.providerName} API key has reached its usage limit. Please check your billing details or use a different API key.`,
         type: "quota_exceeded",
@@ -37,10 +44,7 @@ function baseErrorParser(
       };
     }
 
-    if (
-      options.isInvalidRequest &&
-      options.isInvalidRequest(error, errorType)
-    ) {
+    if (errorTypes.invalidRequest(errorType)) {
       return {
         message: errorMessage || "Invalid request to the API",
         type: "invalid_request",
@@ -65,7 +69,6 @@ function baseErrorParser(
   }
 }
 
-/** @param {string} errorText @param {string} defaultMessage @returns {Object} */
 export function parseOpenAIError(
   errorText,
   defaultMessage = "API request failed"
@@ -74,14 +77,9 @@ export function parseOpenAIError(
     providerName: "OpenAI",
     getErrorType: (error) => error.error?.type || "",
     getErrorMessage: (error) => error.error?.message || defaultMessage,
-    isAuthError: (error, errorType) => errorType === "authentication_error",
-    isQuotaError: (error, errorType) => errorType === "insufficient_quota",
-    isInvalidRequest: (error, errorType) =>
-      errorType === "invalid_request_error",
   });
 }
 
-/** @param {string|Object} errorData @param {string} defaultMessage @returns {Object} */
 export function parseClaudeError(
   errorData,
   defaultMessage = "API request failed"
@@ -90,27 +88,25 @@ export function parseClaudeError(
     providerName: "Anthropic",
     getErrorType: (error) => error.error?.type || "",
     getErrorMessage: (error) => error.error?.message || defaultMessage,
-    isAuthError: (error, errorType) => {
-      return (
-        errorType.includes("authentication") ||
-        errorType.includes("unauthorized")
-      );
-    },
-    isQuotaError: (error, errorType) => {
-      return errorType.includes("quota") || errorType.includes("rate_limit");
-    },
   });
 }
 
-/** @param {Error|string} error @returns {{transcript: string, cleaned: string, summary: string, reply: string}} */
 export function formatTranscriptionError(error) {
-  const errorMessage = typeof error === "string" ? error : error.message;
+  const errorData = error.cause || {};
+  const message = error.message || "Unknown error";
+  const type = errorData.type || "unknown";
+  let cleanedMessage = "";
+
+  if (type === "quota_exceeded")
+    cleanedMessage =
+      "Please update your API key in the extension settings or check your OpenAI account billing details.";
+  else if (type === "authentication")
+    cleanedMessage = "Invalid API key. Please check your settings.";
+  else cleanedMessage = "Try again later or check the extension settings.";
 
   return {
-    transcript: `ERROR: ${errorMessage}`,
-    cleaned: errorMessage.includes("API key has reached its usage limit")
-      ? "Please update your API key in the extension settings or check your OpenAI account billing details."
-      : "Try again later or check the extension settings.",
+    transcript: `ERROR: ${message}`,
+    cleaned: cleanedMessage,
     summary: "",
     reply: "",
   };

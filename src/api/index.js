@@ -1,48 +1,42 @@
-import { createOpenAIProcessingProvider } from "./providers/processing/OpenAIProcessingProvider.js";
-import { createClaudeProcessingProvider } from "./providers/processing/ClaudeProcessingProvider.js";
-import { createOpenAITranscriptionProvider } from "./providers/transcription/OpenAITranscriptionProvider.js";
+import { createOpenAIProcessor } from "./providers/processing/openai.js";
+import { createClaudeProcessor } from "./providers/processing/claude.js";
+import { createOpenAITranscriber } from "./providers/transcription/openai.js";
+import { createLocalWhisperTranscriber } from "./providers/transcription/local-whisper.js";
 
 const TRANSCRIPTION_PROVIDERS = {
-  openai: createOpenAITranscriptionProvider,
+  openai: createOpenAITranscriber,
+  localWhisper: createLocalWhisperTranscriber,
 };
 
 const PROCESSING_PROVIDERS = {
-  openai: createOpenAIProcessingProvider,
-  claude: createClaudeProcessingProvider,
+  openai: createOpenAIProcessor,
+  claude: createClaudeProcessor,
 };
 
-/** @param {string} type @param {Object} config @returns {Object} */
-export function getTranscriptionProvider(type, config = {}) {
+export function getTranscriber(type, config = {}) {
   const createProvider = TRANSCRIPTION_PROVIDERS[type];
-  if (!createProvider)
-    throw new Error(`Unsupported transcription provider type: ${type}`);
+
   return createProvider(config);
 }
 
-/** @param {string} type @param {Object} config @returns {Object} */
-export function getProcessingProvider(type, config = {}) {
+export function getProcessor(type, config = {}) {
   const createProvider = PROCESSING_PROVIDERS[type];
-  if (!createProvider)
-    throw new Error(`Unsupported processing provider type: ${type}`);
+
   return createProvider(config);
 }
 
-/** @returns {Array<string>} */
-export function getSupportedTranscriptionProviders() {
+export function getSupportedTranscribers() {
   return Object.keys(TRANSCRIPTION_PROVIDERS);
 }
 
-/** @returns {Array<string>} */
-export function getSupportedProcessingProviders() {
+export function getSupportedProcessors() {
   return Object.keys(PROCESSING_PROVIDERS);
 }
 
-/** @returns {string} */
-export function getDefaultTranscriptionProviderType() {
+export function getDefaultTranscriber() {
   return "openai";
 }
 
-/** @returns {string} */
-export function getDefaultProcessingProviderType() {
+export function getDefaultProcessor() {
   return "openai";
 }

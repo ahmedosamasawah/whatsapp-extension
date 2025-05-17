@@ -1,6 +1,6 @@
 /** @param {string} response @param {string} originalTranscription @returns {{transcript: string, cleaned: string, summary: string, reply: string}} */
 export function parseProcessedResponse(response, originalTranscription) {
-  const result = {
+  let result = {
     transcript: originalTranscription,
     cleaned: "",
     summary: "",
@@ -8,31 +8,22 @@ export function parseProcessedResponse(response, originalTranscription) {
   };
 
   try {
-    const sections = response.split("----").map((s) => s.trim());
+    const json = JSON.parse(response);
+    if (json && typeof json === "object") {
+      result.transcript = json.original_transcript || originalTranscription;
+      result.cleaned = json.cleaned_transcript || "";
+      result.summary = json.summary || "";
+      result.reply = json.reply || "";
 
-    if (sections.length < 4) {
-      console.warn("Unexpected response format:", response);
-      result.cleaned = response.trim();
-      result.summary = "Error: AI response was not in the expected format";
-      result.reply = "Please try transcribing again";
+      if (!json.cleaned_transcript) console.warn("Missing cleaned_transcript");
+      if (!json.summary) console.warn("Missing summary");
+      if (!json.reply) console.warn("Missing reply");
       return result;
     }
-
-    result.cleaned = sections[1] || "";
-    result.summary = sections[2] || "";
-    result.reply = sections[3] || "";
-
-    if (!result.cleaned || !result.summary || !result.reply) {
-      console.warn("Missing sections in response:", sections);
-      result.summary =
-        result.summary ||
-        "Error: Some sections were missing from the AI response";
-      result.reply = result.reply || "Please try transcribing again";
-    }
   } catch (error) {
-    console.error("Parsing error:", error.message);
+    console.warn("Failed to parse JSON:", error.message);
     result.cleaned = response.trim();
-    result.summary = "Error: Could not process AI response";
+    result.summary = "Error: Could not parse AI response as JSON";
     result.reply = "Please try transcribing again";
   }
 

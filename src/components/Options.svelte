@@ -3,35 +3,30 @@
     settings,
     initialize,
     updateSettings,
-    availableTranscriptionProviders,
-    availableProcessingProviders,
     supportedLanguages,
+    availableProcessingProviders,
+    availableTranscriptionProviders,
   } from "../services/settingsService.js";
 
-  import {
-    getDefaultProcessingProviderType,
-    getDefaultTranscriptionProviderType,
-  } from "../api/index.js";
+  import { getDefaultProcessor, getDefaultTranscriber } from "../api/index.js";
 
   import { defaultTemplates } from "../utils/template.js";
   import { verifyApiKey as verifyApiKeyService } from "../services/transcriptionService.js";
 
-  // Local state for providers
   let transcriptionProviders = $state([]);
   let processingProviders = $state([]);
 
   let processingApiKey = $state("");
   let transcriptionApiKey = $state("");
-
-  let legacyApiKey = $state("");
+  let localWhisperUrl = $state("http://localhost:9000");
 
   let language = $state("auto");
   let promptTemplate = $state("");
   let isExtensionEnabled = $state(true);
   let processingModel = $state("gpt-4o");
   let transcriptionModel = $state("whisper-1");
-  let processingProviderType = $state(getDefaultProcessingProviderType());
-  let transcriptionProviderType = $state(getDefaultTranscriptionProviderType());
+  let processingProviderType = $state(getDefaultProcessor());
+  let transcriptionProviderType = $state(getDefaultTranscriber());
 
   let settingsSaved = $state(null);
   let isVerifyingProcessing = $state(false);
@@ -99,7 +94,6 @@
   (async () => {
     await initialize();
 
-    // Subscribe to providers
     const unsubscribeTranscriptionProviders =
       availableTranscriptionProviders.subscribe((providers) => {
         transcriptionProviders = providers;
@@ -113,25 +107,21 @@
     const unsubscribeSettings = settings.subscribe((value) => {
       if (Object.keys(value).length === 0) return;
 
-      legacyApiKey = value.apiKey || "";
-
-      processingApiKey = value.processingApiKey || value.apiKey || "";
-      transcriptionApiKey = value.transcriptionApiKey || value.apiKey || "";
-
-      transcriptionProviderType =
-        value.transcriptionProviderType ||
-        getDefaultTranscriptionProviderType();
-
-      processingProviderType =
-        value.processingProviderType || getDefaultProcessingProviderType();
-
       language = value.language || "auto";
-
       promptTemplate = value.promptTemplate || "";
       processingModel = value.processingModel || "gpt-4o";
       transcriptionModel = value.transcriptionModel || "whisper-1";
-
       isExtensionEnabled = value.isExtensionEnabled !== false;
+      localWhisperUrl = value.localWhisperUrl || "http://localhost:9000";
+
+      transcriptionProviderType =
+        value.transcriptionProviderType || getDefaultTranscriber();
+
+      processingProviderType =
+        value.processingProviderType || getDefaultProcessor();
+
+      processingApiKey = value.processingApiKey || "";
+      transcriptionApiKey = value.transcriptionApiKey || "";
     });
 
     return () => {
@@ -231,6 +221,38 @@
     }
   }
 
+  async function verifyLocalWhisperServer() {
+    isVerifyingTranscription = true;
+    transcriptionVerificationStatus = null;
+
+    try {
+      const result = await verifyApiKeyService("", "localWhisper", "", {
+        localWhisperUrl,
+      });
+
+      if (result.valid) {
+        transcriptionVerificationStatus = {
+          valid: true,
+          message: "Successfully connected to Local Whisper server!",
+        };
+
+        updateSettings({ localWhisperUrl });
+      } else {
+        transcriptionVerificationStatus = {
+          valid: false,
+          message: result.error || "Failed to connect to Local Whisper server",
+        };
+      }
+    } catch (error) {
+      transcriptionVerificationStatus = {
+        valid: false,
+        message: error.message || "Error connecting to Local Whisper server",
+      };
+    } finally {
+      isVerifyingTranscription = false;
+    }
+  }
+
   function saveSettings() {
     updateSettings({
       transcriptionProviderType,
@@ -242,6 +264,7 @@
       processingModel,
       promptTemplate,
       language,
+      localWhisperUrl,
     });
 
     settingsSaved = {
@@ -302,74 +325,131 @@
       </p>
     </div>
 
-    <div class={["mb-4"]}>
-      <label
-        for="transcriptionApiKey"
-        class={["block text-sm font-medium text-gray-700 mb-1"]}
-      >
-        Transcription API Key
-      </label>
-      <div class={["flex"]}>
+    {#if transcriptionProviderType !== "localWhisper"}
+      <div class={["mb-4"]}>
+        <label
+          for="transcriptionApiKey"
+          class={["block text-sm font-medium text-gray-700 mb-1"]}
+        >
+          Transcription API Key
+        </label>
+        <div class={["flex"]}>
+          <input
+            id="transcriptionApiKey"
+            type="password"
+            placeholder={`Enter ${transcriptionProviderType} API key`}
+            bind:value={transcriptionApiKey}
+            class={[
+              "flex-1 p-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
+            ]}
+          />
+          <button
+            onclick={verifyTranscriptionApiKey}
+            disabled={isVerifyingTranscription}
+            class={[
+              "bg-[#00a884] text-white px-4 py-2 rounded-r-md hover:bg-[#008f72] focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:ring-offset-2 disabled:opacity-50",
+            ]}
+            type="button"
+          >
+            {isVerifyingTranscription ? "Verifying..." : "Verify"}
+          </button>
+        </div>
+
+        {#if transcriptionVerificationStatus}
+          <p
+            class={[
+              "mt-2 text-sm break-words max-w-full overflow-hidden",
+              transcriptionVerificationStatus.valid
+                ? "text-green-600"
+                : "text-red-600",
+            ]}
+          >
+            {transcriptionVerificationStatus.message}
+          </p>
+        {/if}
+      </div>
+    {:else}
+      <div class={["mb-4"]}>
+        <label
+          for="localWhisperUrl"
+          class={["block text-sm font-medium text-gray-700 mb-1"]}
+        >
+          Local Whisper Server URL
+        </label>
         <input
-          id="transcriptionApiKey"
-          type="password"
-          placeholder={`Enter ${transcriptionProviderType} API key`}
-          bind:value={transcriptionApiKey}
+          id="localWhisperUrl"
+          type="text"
+          placeholder="http://localhost:9000"
+          bind:value={localWhisperUrl}
           class={[
-            "flex-1 p-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
+            "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
           ]}
         />
+        <p class={["mt-1 text-xs text-gray-500"]}>
+          URL of your local Whisper server (default: http://localhost:9000)
+        </p>
+        <div class={["mt-2 p-3 bg-blue-50 border border-blue-100 rounded-md"]}>
+          <p class={["text-xs text-blue-800"]}>
+            <strong>Local Server Setup:</strong> You need to run a local Whisper
+            server using whisper.cpp.
+          </p>
+        </div>
         <button
-          onclick={verifyTranscriptionApiKey}
+          onclick={() => verifyLocalWhisperServer()}
           disabled={isVerifyingTranscription}
           class={[
-            "bg-[#00a884] text-white px-4 py-2 rounded-r-md hover:bg-[#008f72] focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:ring-offset-2 disabled:opacity-50",
+            "mt-2 bg-[#00a884] text-white px-4 py-2 rounded-md hover:bg-[#008f72] focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:ring-offset-2 disabled:opacity-50",
           ]}
           type="button"
         >
-          {isVerifyingTranscription ? "Verifying..." : "Verify"}
+          {isVerifyingTranscription
+            ? "Checking Connection..."
+            : "Check Connection"}
         </button>
-      </div>
 
-      {#if transcriptionVerificationStatus}
-        <p
-          class={[
-            "mt-2 text-sm break-words max-w-full overflow-hidden",
-            transcriptionVerificationStatus.valid
-              ? "text-green-600"
-              : "text-red-600",
-          ]}
-        >
-          {transcriptionVerificationStatus.message}
-        </p>
-      {/if}
-    </div>
-
-    <div class={["mb-4"]}>
-      <label
-        for="transcriptionModel"
-        class={["block text-sm font-medium text-gray-700 mb-1"]}
-      >
-        Transcription Model
-      </label>
-      <select
-        id="transcriptionModel"
-        bind:value={transcriptionModel}
-        class={[
-          "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
-        ]}
-      >
-        {#each getTranscriptionModels() as model}
-          <option value={model.id}>{model.name}</option>
-        {/each}
-        {#if getTranscriptionModels().length === 0}
-          <option value="whisper-1">Whisper-1</option>
+        {#if transcriptionVerificationStatus}
+          <p
+            class={[
+              "mt-2 text-sm break-words max-w-full overflow-hidden",
+              transcriptionVerificationStatus.valid
+                ? "text-green-600"
+                : "text-red-600",
+            ]}
+          >
+            {transcriptionVerificationStatus.message}
+          </p>
         {/if}
-      </select>
-      <p class={["mt-1 text-xs text-gray-500"]}>
-        The specific model used for audio transcription (e.g., whisper-1).
-      </p>
-    </div>
+      </div>
+    {/if}
+
+    {#if transcriptionProviderType !== "localWhisper"}
+      <div class={["mb-4"]}>
+        <label
+          for="transcriptionModel"
+          class={["block text-sm font-medium text-gray-700 mb-1"]}
+        >
+          Transcription Model
+        </label>
+        <select
+          id="transcriptionModel"
+          bind:value={transcriptionModel}
+          class={[
+            "w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#00a884] focus:border-[#00a884]",
+          ]}
+          disabled={transcriptionProviderType === "localWhisper"}
+        >
+          {#each getTranscriptionModels() as model}
+            <option value={model.id}>{model.name}</option>
+          {/each}
+          {#if getTranscriptionModels().length === 0 && transcriptionProviderType !== "localWhisper"}
+            <option value="whisper-1">Whisper-1</option>
+          {/if}
+          {#if transcriptionProviderType === "localWhisper"}
+            <option value="local-whisper">Local Whisper Model</option>
+          {/if}
+        </select>
+      </div>
+    {/if}
   </section>
 
   <section class={["mb-8 p-6 bg-white rounded-lg shadow-md"]}>

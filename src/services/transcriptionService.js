@@ -1,7 +1,4 @@
-import {
-  getProcessingProvider,
-  getTranscriptionProvider,
-} from "../api/index.js";
+import { getProcessor, getTranscriber } from "../api/index.js";
 
 import {
   updateStatus,
@@ -12,134 +9,90 @@ import {
 import { defaultTemplates } from "../utils/template.js";
 import { formatTranscriptionError } from "../utils/apiErrors.js";
 
-/** @param {Object} settings @returns {Object} */
-function getConfiguredTranscriptionProvider(settings = {}) {
-  const allSettings =
-    Object.keys(settings).length > 0 ? settings : getAllSettings();
+export const configureTranscriber = (settings = {}) => {
+  const providerType = settings.transcriptionProviderType || "openai";
 
-  const providerType =
-    allSettings.transcriptionProviderType ||
-    allSettings.providerType ||
-    "openai";
+  const config = {
+    apiKey: settings.transcriptionApiKey || "",
+    transcriptionModel: settings.transcriptionModel,
+  };
 
-  const apiKey = allSettings.transcriptionApiKey || allSettings.apiKey || "";
+  if (providerType === "localWhisper")
+    config.apiUrl = settings.localWhisperUrl || "http://localhost:9000";
 
-  return getTranscriptionProvider(providerType, {
-    apiKey,
-    transcriptionModel: allSettings.transcriptionModel,
+  console.log("Config", config);
+
+  return getTranscriber(providerType, config);
+};
+
+export const configureProcessingProvider = (settings = {}) => {
+  const providerType = settings.processingProviderType || "openai";
+
+  return getProcessor(providerType, {
+    apiKey: settings.processingApiKey || "",
+    processingModel: settings.processingModel,
   });
-}
+};
 
-/** @param {Object} settings @returns {Object} */
-function getConfiguredProcessingProvider(settings = {}) {
-  const allSettings =
-    Object.keys(settings).length > 0 ? settings : getAllSettings();
+export const verifyLocalWhisperServer = async (options = {}) => {
+  const apiUrl = options.localWhisperUrl || "http://localhost:9000";
 
-  const providerType =
-    allSettings.processingProviderType || allSettings.providerType || "openai";
+  const provider = getTranscriber("localWhisper", { apiUrl });
 
-  const apiKey = allSettings.processingApiKey || allSettings.apiKey || "";
+  const result = await provider.verifyApiKey();
+  if (result.valid) await updateSettings({ localWhisperUrl: apiUrl });
 
-  return getProcessingProvider(providerType, {
-    apiKey,
-    processingModel: allSettings.processingModel,
-  });
-}
+  return result;
+};
 
-/** @param {string} apiKey @param {string} providerType @param {string} providerCategory @returns {Promise<{valid: boolean, error?: string}>} */
-export async function verifyApiKey(
+export const verifyApiKey = async (
   apiKey,
-  providerType = null,
-  providerCategory = "both"
-) {
+  providerType,
+  providerCategory,
+  options = {}
+) => {
   try {
-    const settings = getAllSettings();
+    if (providerType === "localWhisper")
+      return verifyLocalWhisperServer(options);
 
-    let type;
-    if (providerCategory === "transcription") {
-      type =
-        providerType ||
-        settings.transcriptionProviderType ||
-        settings.providerType ||
-        "openai";
-    } else if (providerCategory === "processing") {
-      type =
-        providerType ||
-        settings.processingProviderType ||
-        settings.providerType ||
-        "openai";
-    } else {
-      type = providerType || settings.providerType || "openai";
-    }
+    const provider =
+      providerCategory === "transcription"
+        ? getTranscriber(providerType, { apiKey })
+        : getProcessor(providerType, { apiKey });
 
-    if (providerCategory === "transcription") {
-      const provider = getTranscriptionProvider(type, { apiKey });
-      const result = await provider.verifyApiKey(apiKey);
+    const result = await provider.verifyApiKey(apiKey);
 
-      if (result.valid) await updateSettings({ transcriptionApiKey: apiKey });
+    if (result.valid)
+      await updateSettings({
+        [`${providerCategory}ApiKey`]: apiKey,
+      });
 
-      return result;
-    } else if (providerCategory === "processing") {
-      const provider = getProcessingProvider(type, { apiKey });
-      const result = await provider.verifyApiKey(apiKey);
-
-      if (result.valid) await updateSettings({ processingApiKey: apiKey });
-
-      return result;
-    } else {
-      const transcriptionProvider = getTranscriptionProvider(type, { apiKey });
-      const processingProvider = getProcessingProvider(type, { apiKey });
-
-      const transcriptionResult = await transcriptionProvider.verifyApiKey(
-        apiKey
-      );
-
-      if (!transcriptionResult.valid) return transcriptionResult;
-
-      const processingResult = await processingProvider.verifyApiKey(apiKey);
-
-      if (processingResult.valid)
-        await updateSettings({
-          apiKey,
-          transcriptionApiKey: apiKey,
-          processingApiKey: apiKey,
-        });
-
-      return processingResult;
-    }
+    return result;
   } catch (error) {
     return { valid: false, error: error.message };
   }
-}
+};
 
-/** @param {Blob} audioBlob @returns {Promise<{transcript: string, cleaned: string, summary: string, reply: string}>} */
-export async function processVoiceMessage(audioBlob) {
+export const processVoiceMessage = async (audioBlob) => {
   updateStatus({ pendingTranscriptions: true });
 
   try {
     const settings = getAllSettings();
+    const transcriber = configureTranscriber(settings);
+    const processor = configureProcessingProvider(settings);
 
-    const transcriptionProvider = getConfiguredTranscriptionProvider(settings);
-    const transcription = await transcriptionProvider.transcribeAudio(
-      audioBlob,
-      {
-        language: settings.language,
-      }
-    );
+    const transcription = await transcriber.transcribeAudio(audioBlob, {
+      language: settings.language,
+    });
 
-    const processingProvider = getConfiguredProcessingProvider(settings);
-    const processed = await processingProvider.processTranscription(
-      transcription,
-      {
-        language: settings.language,
-        promptTemplate:
-          settings.promptTemplate ||
-          defaultTemplates[
-            settings.processingProviderType || settings.providerType
-          ]?.processing ||
-          defaultTemplates.openai.processing,
-      }
-    );
+    const promptTemplate =
+      settings.promptTemplate ||
+      defaultTemplates[settings.processingProviderType]?.processing;
+
+    const processed = await processor.processTranscription(transcription, {
+      language: settings.language,
+      promptTemplate: promptTemplate,
+    });
 
     updateStatus({ pendingTranscriptions: false, lastError: null });
     return processed;
@@ -147,4 +100,4 @@ export async function processVoiceMessage(audioBlob) {
     updateStatus({ pendingTranscriptions: false, lastError: error.message });
     return formatTranscriptionError(error);
   }
-}
+};

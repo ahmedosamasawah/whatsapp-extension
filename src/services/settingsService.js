@@ -1,11 +1,12 @@
+import {
+  getDefaultProcessor,
+  getDefaultTranscriber,
+  getSupportedProcessors,
+  getSupportedTranscribers,
+} from "../api/index.js";
+
 import { writable, get, derived } from "svelte/store";
 import * as storageService from "./storageService.js";
-import {
-  getDefaultProcessingProviderType,
-  getDefaultTranscriptionProviderType,
-  getSupportedTranscriptionProviders,
-  getSupportedProcessingProviders,
-} from "../api/index.js";
 
 export const supportedLanguages = [
   { id: "auto", name: "Auto-detect" },
@@ -18,46 +19,38 @@ export const supportedLanguages = [
 ];
 
 const DEFAULT_SETTINGS = {
-  providerType: getDefaultTranscriptionProviderType(),
-  apiKey: "",
-  processingProviderType: getDefaultProcessingProviderType(),
-  transcriptionProviderType: getDefaultTranscriptionProviderType(),
+  language: "auto",
+  promptTemplate: "",
   processingApiKey: "",
   transcriptionApiKey: "",
-  promptTemplate: "",
-  language: "auto",
+  isExtensionEnabled: true,
   processingModel: "gpt-4o",
   transcriptionModel: "whisper-1",
-  isExtensionEnabled: true,
+  localWhisperUrl: "http://localhost:9000",
+  processingProviderType: getDefaultProcessor(),
+  transcriptionProviderType: getDefaultTranscriber(),
 };
 
 export const availableTranscriptionProviders = writable(
-  getSupportedTranscriptionProviders().map((id) => ({
+  getSupportedTranscribers().map((id) => ({
     id,
-    name: id.charAt(0).toUpperCase() + id.slice(1),
+    name:
+      id === "localWhisper"
+        ? "Local Whisper Server"
+        : id.charAt(0).toUpperCase() + id.slice(1),
     category: "transcription",
   }))
 );
 
 export const availableProcessingProviders = writable(
-  getSupportedProcessingProviders().map((id) => ({
+  getSupportedProcessors().map((id) => ({
     id,
     name: id.charAt(0).toUpperCase() + id.slice(1),
     category: "processing",
   }))
 );
 
-export const availableProviders = writable(
-  getSupportedTranscriptionProviders()
-    .filter((id) => getSupportedProcessingProviders().includes(id))
-    .map((id) => ({
-      id,
-      name: id.charAt(0).toUpperCase() + id.slice(1),
-    }))
-);
-
-const settings = writable({});
-const isInitialized = writable(false);
+const settings = writable({ ...DEFAULT_SETTINGS });
 const status = writable({
   isApiKeyConfigured: false,
   isExtensionEnabled: true,
@@ -67,170 +60,49 @@ const status = writable({
 
 export const transcriptionCache = writable(new Map());
 
-let initializationPromise = null;
-
-/** @returns {Promise<void>} */
-export function initialize() {
-  if (initializationPromise) return initializationPromise;
-
-  initializationPromise = (async () => {
-    try {
-      const storedTranscriptions =
-        (await storageService.get("wa-transcriptions", "indexedDB")) || {};
-      transcriptionCache.set(new Map(Object.entries(storedTranscriptions)));
-
-      const storedSettings = await storageService.getAll("sync");
-
-      const legacyApiKey =
-        (await storageService.get("apiKey", "local")) ||
-        (await storageService.get("apiKey", "sync"));
-
-      const transcriptionApiKey =
-        (await storageService.get("transcriptionApiKey", "local")) ||
-        (await storageService.get("transcriptionApiKey", "sync"));
-
-      const processingApiKey =
-        (await storageService.get("processingApiKey", "local")) ||
-        (await storageService.get("processingApiKey", "sync"));
-
-      if (
-        storedSettings.providerType &&
-        !storedSettings.transcriptionProviderType
-      )
-        storedSettings.transcriptionProviderType = storedSettings.providerType;
-
-      if (storedSettings.providerType && !storedSettings.processingProviderType)
-        storedSettings.processingProviderType = storedSettings.providerType;
-
-      if (legacyApiKey && !transcriptionApiKey)
-        storedSettings.transcriptionApiKey = legacyApiKey;
-
-      if (legacyApiKey && !processingApiKey)
-        storedSettings.processingApiKey = legacyApiKey;
-
-      const mergedSettings = {
-        ...DEFAULT_SETTINGS,
-        ...storedSettings,
-        apiKey: legacyApiKey || "",
-        transcriptionApiKey:
-          storedSettings.transcriptionApiKey || legacyApiKey || "",
-        processingApiKey: storedSettings.processingApiKey || legacyApiKey || "",
-      };
-
-      settings.set(mergedSettings);
-
-      updateStatus({
-        isApiKeyConfigured: !!(
-          transcriptionApiKey ||
-          processingApiKey ||
-          legacyApiKey
-        ),
-        isExtensionEnabled: storedSettings.isExtensionEnabled !== false,
-      });
-
-      setupSettingsPersistence();
-
-      isInitialized.set(true);
-    } catch (error) {
-      console.error("Failed to initialize settings:", error);
-      throw error;
-    }
-  })();
-
-  return initializationPromise;
-}
-
-/** @param {string} key @param {any} [defaultValue] @returns {any} */
-export function getSetting(key, defaultValue) {
-  const currentSettings = get(settings);
-
-  if (Object.keys(currentSettings).length === 0) {
-    console.warn(
-      "Settings accessed before initialization. Call initialize() first."
-    );
-  }
-
-  return currentSettings[key] !== undefined
-    ? currentSettings[key]
-    : defaultValue;
-}
-
-/** @returns {Object} */
-export function getAllSettings() {
-  return get(settings);
-}
-
-/** @param {Object} updates @returns {Promise<void>} */
-export async function updateSettings(updates) {
-  if (!get(isInitialized)) {
-    console.warn(
-      "Updating settings before initialization. Call initialize() first."
-    );
-    await initialize();
-  }
-
-  settings.update((s) => ({ ...s, ...updates }));
-
-  if (
-    updates.apiKey ||
-    updates.transcriptionApiKey ||
-    updates.processingApiKey
-  ) {
-    const currentSettings = get(settings);
-    const isApiKeyConfigured = !!(
-      currentSettings.transcriptionApiKey ||
-      currentSettings.processingApiKey ||
-      currentSettings.apiKey
-    );
-    updateStatus({ isApiKeyConfigured });
-  }
-
+export async function initialize() {
   try {
-    await chrome.runtime.sendMessage({ action: "settingsUpdated" });
-  } catch (error) {}
-}
+    const storedTranscriptions = await storageService.get(
+      "wa-transcriptions",
+      "indexedDB"
+    );
+    transcriptionCache.set(new Map(Object.entries(storedTranscriptions || {})));
 
-/** @returns {Promise<void>} */
-export async function resetSettings() {
-  await updateSettings(DEFAULT_SETTINGS);
-}
+    const storedSettings = await storageService.getAll("sync");
 
-/** @param {Object} updates @returns {void} */
-export function updateStatus(updates) {
-  status.update((currentStatus) => {
-    const newStatus = { ...currentStatus };
+    // Handle API keys from both local and sync storage for backward compatibility
+    const transcriptionApiKey =
+      storedSettings.transcriptionApiKey ||
+      (await storageService.get("transcriptionApiKey", "local")) ||
+      (await storageService.get("transcriptionApiKey", "sync")) ||
+      "";
 
-    if (updates.pendingTranscriptions !== undefined) {
-      if (typeof updates.pendingTranscriptions === "boolean") {
-        newStatus.pendingTranscriptions += updates.pendingTranscriptions
-          ? 1
-          : -1;
-        if (newStatus.pendingTranscriptions < 0)
-          newStatus.pendingTranscriptions = 0;
-      } else {
-        newStatus.pendingTranscriptions = updates.pendingTranscriptions;
-      }
-    }
+    const processingApiKey =
+      storedSettings.processingApiKey ||
+      (await storageService.get("processingApiKey", "local")) ||
+      (await storageService.get("processingApiKey", "sync")) ||
+      "";
 
-    if (updates.lastError !== undefined)
-      newStatus.lastError = updates.lastError;
-    if (updates.isExtensionEnabled !== undefined)
-      newStatus.isExtensionEnabled = updates.isExtensionEnabled;
-    if (updates.isApiKeyConfigured !== undefined)
-      newStatus.isApiKeyConfigured = updates.isApiKeyConfigured;
+    settings.set({
+      ...DEFAULT_SETTINGS,
+      ...storedSettings,
+      transcriptionApiKey,
+      processingApiKey,
+    });
 
-    return newStatus;
-  });
-}
+    updateStatus({
+      isApiKeyConfigured: !!(transcriptionApiKey || processingApiKey),
+      isExtensionEnabled: storedSettings.isExtensionEnabled !== false,
+    });
 
-/** @returns {Object} */
-export function getStatus() {
-  return get(status);
-}
+    setupSettingsPersistence();
 
-/** @returns {boolean} */
-export function isSettingsInitialized() {
-  return get(isInitialized);
+    try {
+      await chrome.runtime.sendMessage({ action: "settingsUpdated" });
+    } catch (error) {}
+  } catch (error) {
+    console.error("Failed to initialize settings:", error);
+  }
 }
 
 function setupSettingsPersistence() {
@@ -247,13 +119,7 @@ function setupSettingsPersistence() {
 
     previousSettings = { ...currentSettings };
 
-    if (currentSettings.apiKey) {
-      await storageService.set("apiKey", currentSettings.apiKey, [
-        "local",
-        "sync",
-      ]);
-    }
-
+    // Store API keys in both local and sync storage for backward compatibility
     if (currentSettings.transcriptionApiKey) {
       await storageService.set(
         "transcriptionApiKey",
@@ -270,12 +136,9 @@ function setupSettingsPersistence() {
       );
     }
 
+    // Store other settings in sync storage
     for (const [key, value] of Object.entries(currentSettings)) {
-      if (
-        key !== "apiKey" &&
-        key !== "transcriptionApiKey" &&
-        key !== "processingApiKey"
-      ) {
+      if (key !== "transcriptionApiKey" && key !== "processingApiKey") {
         await storageService.set(key, value, "sync");
       }
     }
@@ -293,6 +156,63 @@ function setupSettingsPersistence() {
   });
 }
 
+export function getSetting(key, defaultValue) {
+  return get(settings)[key] !== undefined ? get(settings)[key] : defaultValue;
+}
+
+export function getAllSettings() {
+  return get(settings);
+}
+
+export async function updateSettings(updates) {
+  settings.update((s) => ({ ...s, ...updates }));
+
+  if (updates.transcriptionApiKey || updates.processingApiKey) {
+    const currentSettings = get(settings);
+    const isApiKeyConfigured = !!(
+      currentSettings.transcriptionApiKey || currentSettings.processingApiKey
+    );
+    updateStatus({ isApiKeyConfigured });
+  }
+
+  try {
+    await chrome.runtime.sendMessage({ action: "settingsUpdated" });
+  } catch (error) {}
+}
+
+export async function resetSettings() {
+  await updateSettings(DEFAULT_SETTINGS);
+}
+
+export function updateStatus(updates) {
+  status.update((currentStatus) => {
+    const newStatus = { ...currentStatus };
+
+    if (updates.pendingTranscriptions !== undefined) {
+      if (typeof updates.pendingTranscriptions === "boolean") {
+        newStatus.pendingTranscriptions += updates.pendingTranscriptions
+          ? 1
+          : -1;
+        if (newStatus.pendingTranscriptions < 0)
+          newStatus.pendingTranscriptions = 0;
+      } else newStatus.pendingTranscriptions = updates.pendingTranscriptions;
+    }
+
+    if (updates.lastError !== undefined)
+      newStatus.lastError = updates.lastError;
+    if (updates.isExtensionEnabled !== undefined)
+      newStatus.isExtensionEnabled = updates.isExtensionEnabled;
+    if (updates.isApiKeyConfigured !== undefined)
+      newStatus.isApiKeyConfigured = updates.isApiKeyConfigured;
+
+    return newStatus;
+  });
+}
+
+export function getStatus() {
+  return get(status);
+}
+
 export const statusText = derived(status, ($status) => {
   if (!$status.isApiKeyConfigured)
     return { text: "API key not configured", type: "error" };
@@ -306,25 +226,11 @@ export const statusText = derived(status, ($status) => {
   return { text: "Ready", type: "success" };
 });
 
-export { settings, status };
-export { DEFAULT_SETTINGS };
-
-/** @param {string} id @param {Object} data @returns {Promise<void>} */
 export async function cacheTranscription(id, data) {
   transcriptionCache.update((cache) => {
     cache.set(id, data);
     return cache;
   });
 }
-
-/** @param {string} id @returns {Object|undefined} */
-export function getTranscription(id) {
-  const cache = get(transcriptionCache);
-  return cache.get(id);
-}
-
-/** @param {string} id @returns {boolean} */
-export function hasTranscription(id) {
-  const cache = get(transcriptionCache);
-  return cache.has(id);
-}
+export { settings, status };
+export { DEFAULT_SETTINGS };

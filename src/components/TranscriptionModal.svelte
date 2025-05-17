@@ -23,23 +23,17 @@
   let copyButtonText = $state("Copy Text");
   let copyAllButtonText = $state("Copy All");
 
-  /** @param {string} tabId */
-  function setActiveTab(tabId) {
+  const setActiveTab = (tabId) => {
     activeTab = tabId;
-  }
+  };
 
-  /** @param {string} text */
-  function copyText(text) {
+  const copyText = (text) => {
     navigator.clipboard.writeText(text);
-
     copyButtonText = "Copied to clipboard!";
+    resetCopyTimeout(() => (copyButtonText = "Copy Text"));
+  };
 
-    if (copyTimeout) clearTimeout(copyTimeout);
-
-    copyTimeout = setTimeout(() => (copyButtonText = "Copy Text"), 2000);
-  }
-
-  function copyAllText() {
+  const copyAllText = () => {
     const allText = [
       `TRANSCRIPT:\n${data.transcript}`,
       `\nCLEANED:\n${data.cleaned}`,
@@ -48,28 +42,40 @@
     ].join("\n");
 
     navigator.clipboard.writeText(allText);
-
     copyAllButtonText = "All copied!";
+    resetCopyTimeout(() => (copyAllButtonText = "Copy All"));
+  };
 
+  const resetCopyTimeout = (callback) => {
     if (copyTimeout) clearTimeout(copyTimeout);
+    copyTimeout = setTimeout(callback, 2000);
+  };
 
-    copyTimeout = setTimeout(() => (copyAllButtonText = "Copy All"), 2000);
-  }
-
-  /** @param {Event} event */
-  function handleModalClick(event) {
+  const handleModalClick = (event) => {
     event.stopPropagation();
-  }
+  };
 
-  /** @param {KeyboardEvent} event */
-  function handleKeydown(event) {
+  const handleKeydown = (event) => {
     if (event.key === "Escape") close();
-  }
+  };
 
-  /** @param {KeyboardEvent} event */
-  function handleModalKeydown(event) {
+  const handleModalKeydown = (event) => {
     if (event.key === "Escape") event.stopPropagation();
-  }
+  };
+
+  const isErrorState = () => data.transcript?.startsWith("ERROR:");
+
+  const getTabButtonClass = (tabId) => [
+    "flex-1 py-2.5 px-2 border-opacity-0 cursor-pointer transition-all flex flex-col items-center text-xs text-black",
+    activeTab === tabId
+      ? "border-b-[3px] border-[#00a884] text-[#00a884] font-medium bg-[#00a884]"
+      : "hover:bg-gray-200 bg-white border-gray-200",
+  ];
+
+  const openOptionsPage = () => {
+    chrome.runtime.sendMessage({ action: "openOptionsPage" });
+    close();
+  };
 </script>
 
 {#if show}
@@ -111,12 +117,7 @@
     <nav class={["flex bg-gray-100 border-b border-gray-200"]}>
       {#each tabs as tab}
         <button
-          class={[
-            "flex-1 py-2.5 px-2 border-opacity-0 cursor-pointer transition-all flex flex-col items-center text-xs text-black",
-            activeTab === tab.id
-              ? "border-b-[3px] border-[#00a884] text-[#00a884] font-medium bg-[#00a884]"
-              : "hover:bg-gray-200 bg-white border-gray-200",
-          ]}
+          class={getTabButtonClass(tab.id)}
           disabled={loading || !data[tab.id]}
           onclick={() => setActiveTab(tab.id)}
           aria-selected={activeTab === tab.id}
@@ -138,7 +139,7 @@
           ></div>
           <p class={["text-gray-500 text-sm"]}>Processing voice message...</p>
         </div>
-      {:else if data.transcript.startsWith("ERROR:")}
+      {:else if isErrorState()}
         <section class={["flex flex-col items-center justify-center py-5"]}>
           <div
             class={[
@@ -175,10 +176,7 @@
                 class={[
                   "bg-[#00a884] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#008f70] transition-colors",
                 ]}
-                onclick={() => {
-                  chrome.runtime.sendMessage({ action: "openOptionsPage" });
-                  close();
-                }}
+                onclick={openOptionsPage}
               >
                 Update API Key
               </button>
