@@ -28,10 +28,18 @@ export const configureTranscriber = (settings = {}) => {
 export const configureProcessingProvider = (settings = {}) => {
   const providerType = settings.processingProviderType || "openai";
 
-  return getProcessor(providerType, {
+  const config = {
     apiKey: settings.processingApiKey || "",
-    processingModel: settings.processingModel,
-  });
+    model: settings.processingModel,
+  };
+
+  if (providerType === "ollama") {
+    config.ollamaServerUrl =
+      settings.ollamaServerUrl || "http://localhost:11434";
+    config.model = settings.processingModel || "llama3.2:latest";
+  }
+
+  return getProcessor(providerType, config);
 };
 
 export const verifyLocalWhisperServer = async (options = {}) => {

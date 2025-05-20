@@ -1,5 +1,6 @@
 import { createOpenAIProcessor } from "./providers/processing/openai.js";
 import { createClaudeProcessor } from "./providers/processing/claude.js";
+import { createOllamaProcessor } from "./providers/processing/ollama.js";
 import { createOpenAITranscriber } from "./providers/transcription/openai.js";
 import { createLocalWhisperTranscriber } from "./providers/transcription/local-whisper.js";
 
@@ -11,6 +12,7 @@ const TRANSCRIPTION_PROVIDERS = {
 const PROCESSING_PROVIDERS = {
   openai: createOpenAIProcessor,
   claude: createClaudeProcessor,
+  ollama: createOllamaProcessor,
 };
 
 export function getTranscriber(type, config = {}) {

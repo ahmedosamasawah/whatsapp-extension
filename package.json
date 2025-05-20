@@ -20,7 +20,7 @@
     "idb-keyval": "^6.2.1",
     "postcss": "^8.4.36",
     "rollup": "^3.21.0",
-    "rollup-plugin-copy": "^3.4.0",
+    "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-css-only": "^4.3.0",
     "rollup-plugin-postcss": "^4.0.2",
     "rollup-plugin-svelte": "^7.1.4",

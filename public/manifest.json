@@ -4,7 +4,12 @@
   "version": "1.0.0",
   "description": "Transcribe, clean, summarize, and get suggested replies for WhatsApp voice messages",
   "permissions": ["activeTab", "storage", "tabs"],
-  "host_permissions": ["https://web.whatsapp.com/*"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://ollama.com/*",
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*"
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
